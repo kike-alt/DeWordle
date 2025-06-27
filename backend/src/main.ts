@@ -1,72 +1,49 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import * as dotenv from 'dotenv';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import {
-  AllExceptionsFilter,
-  ValidationExceptionFilter,
-  AuthExceptionFilter,
-  SessionExceptionFilter,
-  DatabaseExceptionFilter,
-  BlockchainExceptionFilter,
-} from './common/filters';
-import { ValidationPipe, BadRequestException } from '@nestjs/common';
-
-dotenv.config();
+import { NestFactory } from "@nestjs/core"
+import { ValidationPipe } from "@nestjs/common"
+import { ConfigService } from "@nestjs/config"
+import { AppModule } from "./app.module"
+import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter"
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule)
+  const configService = app.get(ConfigService)
 
-  // Swagger configuration (from feature/swagger-documentation)
-  const config = new DocumentBuilder()
-    .setTitle('Dewordle API')
-    .setDescription('API documentation for Dewordle platform')
-    .setVersion('1.0')
-    .addBearerAuth() // Enable JWT authentication in Swagger
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  // Global validation pipe (from main)
+  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
-      transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
-      exceptionFactory: (errors) => {
-        const messages = errors.map((error) => {
-          return {
-            property: error.property,
-            constraints: error.constraints,
-          };
-        });
-        return new BadRequestException({
-          message: 'Validation failed',
-          errors: messages,
-        });
-      },
+      transform: true,
     }),
-  );
+  )
 
-  // Global filters (from main)
-  // app.useGlobalFilters(
-  //   new ValidationExceptionFilter(),
-  //   new AuthExceptionFilter(),
-  //   new SessionExceptionFilter(),
-  //   new DatabaseExceptionFilter(),
-  //   new BlockchainExceptionFilter(),
-  //   new AllExceptionsFilter(),
-  // );
+  // Global prefix
+  app.setGlobalPrefix("api/v1")
 
-  // Enable CORS (from main)
+  // Enable CORS
   app.enableCors({
-    origin: '*', // All locations
-    credentials: true, // Allow cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-  app.setGlobalPrefix('api/v1');
-  await app.listen(process.env.PORT ?? 3000);
+    origin: ["http://localhost:3000", "http://localhost:3001", configService.get("FRONTEND_URL")].filter(Boolean),
+    credentials: true,
+  })
+
+  // Global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter())
+
+  const port = configService.get("PORT") || 3000
+
+  console.log("🚀 Starting Dewordle API...")
+  console.log(`📊 Environment: ${configService.get("NODE_ENV")}`)
+  console.log(`🌐 Port: ${port}`)
+  console.log(`🔗 API URL: http://localhost:${port}/api/v1`)
+
+  await app.listen(port)
+
+  console.log("✅ Dewordle API is running successfully!")
+  console.log(`📋 Health Check: http://localhost:${port}/api/v1/health`)
+  console.log(`🗄️  Database Health: http://localhost:${port}/api/v1/health/db`)
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error("❌ Failed to start the application:", error)
+  process.exit(1)
+})

@@ -19,10 +19,10 @@ export class Leaderboard {
   @JoinTable()
   user: User;
 
-  @Column('integer')
+  @Column('integer', { nullable: true })
   gameId: number;
 
-  @Column('integer', { default: 0 })
+  @Column('integer', { default: 0, nullable: true })
   totalWins: number;
 
   @Column('integer', { default: 0 })

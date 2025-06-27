@@ -38,6 +38,7 @@
     "@nestjs/platform-express": "^11.0.10",
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/swagger": "github:nestjs/swagger",
+    "@nestjs/terminus": "^11.0.0",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.0",
     "@types/cache-manager": "^4.0.6",

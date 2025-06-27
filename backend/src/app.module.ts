@@ -1,135 +1,95 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config'; // Import ConfigService
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
-import { AuthModule } from './auth/auth.module';
-import { LeaderboardModule } from './games/dewordle/leaderboard/leaderboard.module';
-import { AdminModule } from './admin/admin.module';
-import { ResultModule } from './games/dewordle/result/result.module';
-import { SubAdminModule } from './sub-admin/sub-admin.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Leaderboard } from './games/dewordle/leaderboard/entities/leaderboard.entity';
-import { Result } from './games/dewordle/result/entities/result.entity';
-import { User } from './users/entities/user.entity';
-import { SubAdmin } from './sub-admin/entities/sub-admin-entity';
-import { Admin } from './admin/entities/admin.entity';
-// import envConfiguration from 'config/envConfiguration';
-// import { validate } from '../config/env.validation';
-import { GuestUserModule } from './guest/guest.module';
-import { GuestFeaturesModule } from './guest-features/guest-features.module';
-import { CacheModule } from '@nestjs/cache-manager';
-import { GuestUserGuard } from './guest/guest.guard';
-import { RedisService } from './guest/provider/redis.service';
-import { GuestUserController } from './guest/guest.controller';
-import { GuestUserService } from './guest/guest.service';
-import { MailModule } from './mail/mail.module';
-import { createClient } from 'redis';
-import { PaginationModule } from './common/pagination/pagination-controller.controller';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
-import { join } from 'path';
-import { WordsModule } from './games/dewordle/words/words.module';
-import { GamesModule } from './games/games.module';
-import { DictionaryModule } from './dictionary/dictionary.module';
-import { SpellingBeeModule } from './games/spelling-bee/spelling-bee.module';
-import { LetteredBoxModule } from './games/lettered-box/lettered-box.module';
-import { GamesController } from './games/games.controller';
-import { PuzzleModule } from './puzzle/puzzle.module';
-import { StrandsModule } from './games/strands/strands.module';
+import { Module } from "@nestjs/common"
+import { ConfigModule, ConfigService } from "@nestjs/config"
+import { TypeOrmModule } from "@nestjs/typeorm"
+import { AppController } from "./app.controller"
+import { AppService } from "./app.service"
+
+import { UsersModule } from "./users/users.module"
+import { AuthModule } from "./auth/auth.module"
+import { AdminModule } from "./admin/admin.module"
+import { SubAdminModule } from "./sub-admin/sub-admin.module"
+import { GamesModule } from "./games/games.module"
+import { PuzzleModule } from "./puzzle/puzzle.module"
+import { DictionaryModule } from "./dictionary/dictionary.module"
+import { GuestFeaturesModule } from "./guest-features/guest-features.module"
+import { MailModule } from "./mail/mail.module"
+import { GuestUserModule } from "./guest/guest.module"
+import { HealthModule } from "./health/health.module"
+
+import envConfiguration from "../config/envConfiguration"
+import { validate } from "../config/env.validation" // ✅ Correct function to use
+
+// Entities
+import { User } from "./users/entities/user.entity"
+import { Result } from "./games/dewordle/result/entities/result.entity"
+import { Leaderboard } from "./games/dewordle/leaderboard/entities/leaderboard.entity"
+import { Admin } from "./admin/entities/admin.entity"
+import { SubAdmin } from "./sub-admin/entities/sub-admin-entity"
+import { Token } from "./auth/entities/token.entity"
+import { Word } from "./games/dewordle/words/entities/word.entity"
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [envConfiguration],
+      validate, // ✅ Use class-validator-based schema validation
+      envFilePath: ".env",
     }),
-
-    MailerModule.forRootAsync({
+    TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        transport: {
-          host: configService.get<string>('SMTP_HOST'),
-          port: configService.get<number>('SMTP_PORT'),
-          auth: {
-            user: configService.get<string>('SMTP_USER'),
-            pass: configService.get<string>('SMTP_PASS'),
-          },
-        },
-        defaults: {
-          from: `"No Reply" <${configService.get<string>('SMTP_FROM')}>`,
-        },
-        template: {
-          dir: join(__dirname, '../templates'),
-          adapter: new HandlebarsAdapter(),
-          options: { strict: true },
-        },
-      }),
-    }),
+      useFactory: (configService: ConfigService) => {
+        const isProduction = configService.get("NODE_ENV") === "production"
+        const sslEnabled = configService.get("DB_SSL") === "true"
 
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT) || 5432,
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      autoLoadEntities: true,
-      entities: [User, Result, Leaderboard, Admin, SubAdmin],
-      migrations: ['src/migrations/*.ts'],
-      synchronize: true,
-      ssl:
-        process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // SSL Fix
-      extra: {
-        ssl:
-          process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      },
-    }),
+        console.log("🔧 Database Configuration:")
+        console.log(`- Host: ${configService.get("DB_HOST")}`)
+        console.log(`- Port: ${configService.get("DB_PORT")}`)
+        console.log(`- Database: ${configService.get("DB_NAME")}`)
+        console.log(`- SSL Enabled: ${sslEnabled}`)
+        console.log(`- Environment: ${configService.get("NODE_ENV")}`)
 
-    CacheModule.registerAsync({
-      isGlobal: true,
-      useFactory: async () => {
-        try {
-          const client = createClient({
-            url: 'redis://localhost:6379',
-          });
-          await client.connect();
-
-          return {
-            store: 'redis',
-            client: client,
-            ttl: 300,
-          };
-        } catch (e) {
-          console.warn('Redis connection failed, falling back to memory cache');
-          return {
-            ttl: 300,
-          };
+        return {
+          type: "postgres",
+          host: configService.get("DB_HOST"),
+          port: Number(configService.get("DB_PORT")) || 5432,
+          username: configService.get("DB_USERNAME"),
+          password: configService.get("DB_PASSWORD"),
+          database: configService.get("DB_NAME"),
+          entities: [User, Result, Leaderboard, Admin, SubAdmin, Token, Word],
+          migrations: ["dist/migrations/*.js"],
+          synchronize: !isProduction,
+          logging: !isProduction,
+          ssl: sslEnabled
+            ? {
+                rejectUnauthorized: false,
+              }
+            : false,
+          extra: sslEnabled
+            ? {
+                ssl: {
+                  rejectUnauthorized: false,
+                },
+              }
+            : {},
         }
       },
+      inject: [ConfigService],
     }),
-
     UsersModule,
     AuthModule,
-    LeaderboardModule,
     AdminModule,
-    ResultModule,
     SubAdminModule,
-    GuestUserModule,
-    PaginationModule,
-    MailModule,
+    GamesModule,
+    PuzzleModule,
+    DictionaryModule,
     GuestUserModule,
     GuestFeaturesModule,
     MailModule,
-    WordsModule,
-    GamesModule,
-    DictionaryModule,
-    SpellingBeeModule,
-    LetteredBoxModule,
-    PuzzleModule,
-    StrandsModule
+    HealthModule,
+    
   ],
-  controllers: [AppController, GuestUserController, GamesController],
-  providers: [AppService, GuestUserGuard, RedisService, GuestUserService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
