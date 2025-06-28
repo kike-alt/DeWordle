@@ -148,4 +148,29 @@ export class UsersService {
     // Implementation would go here
     return { token: 'generated-token' }; // Placeholder implementation
   }
+
+  // Method for auth service to create user directly (bypassing email verification for auth)
+  async createUserForAuth(userData: {
+    email: string;
+    password: string;
+    walletAddress: string;
+  }): Promise<User> {
+    const user = this.userRepository.create(userData);
+    return this.userRepository.save(user);
+  }
+
+  // Method to find user by wallet address
+  async findByWalletAddress(walletAddress: string): Promise<User> {
+    return this.userRepository.findOne({ where: { walletAddress } });
+  }
+
+  // Alias method to match auth service expectations
+  async findByEmail(email: string): Promise<User> {
+    return this.GetOneByEmail(email);
+  }
+
+  // Alias method to match auth service expectations
+  async findById(id: number): Promise<User> {
+    return this.findOneById(id);
+  }
 }

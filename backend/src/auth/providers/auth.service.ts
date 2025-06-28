@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   UseFilters,
+  ConflictException,
 } from '@nestjs/common';
 import { SignInDto } from '../dto/create-auth.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
@@ -24,6 +25,8 @@ import { Token } from 'src/auth/entities/token.entity';
 import { TokenType } from 'src/auth/enums/token-type.enum';
 import { EmailService } from 'src/mail/providers/email.service';
 import { MailService } from 'src/mail/providers/mail.service';
+import { SignupDto } from '../dto/sign-up.dto';
+import { LoginDto } from '../dto/login.dto';
 
 @Injectable()
 @UseFilters(AuthExceptionFilter) // ✅ Apply AuthExceptionFilter
@@ -45,12 +48,88 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  public async SignIn(signInDto: SignInDto) {
-    // try {
-    return await this.signInProvider.SignIn(signInDto);
-    // } catch (error) {
-    //   throw new Error('Authentication failed'); // The filter will handle this
-    // }
+  async signup(signupDto: SignupDto) {
+    const { email, password, walletAddress } = signupDto;
+
+    // Check if email already exists using your existing method
+    const existingUserByEmail = await this.usersService.findByEmail(email);
+    if (existingUserByEmail) {
+      throw new ConflictException('Email already exists');
+    }
+
+    // Check if wallet address already exists
+    const existingUserByWallet =
+      await this.usersService.findByWalletAddress(walletAddress);
+    if (existingUserByWallet) {
+      throw new ConflictException('Wallet address already exists');
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user using your service method
+    const user = await this.usersService.createUserForAuth({
+      email,
+      password: hashedPassword,
+      walletAddress,
+    });
+
+    // Generate JWT token
+    const payload = { sub: user.id, email: user.email };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        walletAddress: user.walletAddress,
+      },
+    };
+  }
+
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
+
+    // Find user by email using your existing method
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Generate JWT token
+    const payload = { sub: user.id, email: user.email };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        walletAddress: user.walletAddress,
+      },
+    };
+  }
+
+  async getProfile(userId: number) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      walletAddress: user.walletAddress,
+      createdAt: user.createdAt,
+    };
   }
 
   public async refreshToken(refreshTokenDto: RefreshTokenDto) {

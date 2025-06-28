@@ -62,6 +62,9 @@ export class User {
   })
   leaderboard: Leaderboard[];
 
+  @Column({ unique: true, nullable: true })
+  walletAddress: string;
+
   // @OneToMany(() => Leaderboard, (leaderboard) => leaderboard.user, {
   //   cascade: true,
   //   onDelete: 'CASCADE',

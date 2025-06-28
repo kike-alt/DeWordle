@@ -4,6 +4,8 @@ import {
   NotFoundException,
   UnauthorizedException,
   Get,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import {
@@ -12,6 +14,9 @@ import {
   ApiResponse,
   ApiBody,
   ApiBearerAuth,
+  ApiConflictResponse,
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './providers/auth.service';
 import { SignInDto } from './dto/create-auth.dto';
@@ -19,30 +24,161 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailDto } from './dto/email.dto';
+import { JwtAuthGuard } from 'security/guards/jwt-auth.guard';
+import { LoginDto } from './dto/login.dto';
+import { SignupDto } from './dto/sign-up.dto';
 
-@ApiTags('Auth') // Group all endpoints under the 'Auth' tag
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('sign-in')
+  @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'User registration',
+    description: 'Register a new user with email, password, and wallet address',
+  })
+  @ApiBody({
+    type: SignupDto,
+    description: 'User registration data',
+    examples: {
+      example1: {
+        summary: 'Valid signup data',
+        value: {
+          email: 'user@example.com',
+          password: 'password123',
+          walletAddress: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'User registered successfully',
+    schema: {
+      example: {
+        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        user: {
+          id: 1,
+          email: 'user@example.com',
+          walletAddress: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
+        },
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'Email or wallet address already exists',
+    schema: {
+      example: {
+        statusCode: 409,
+        message: 'Email already exists',
+        error: 'Conflict',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input data',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: [
+          'email must be an email',
+          'password must be longer than or equal to 6 characters',
+          'walletAddress must be a valid Ethereum address',
+        ],
+        error: 'Bad Request',
+      },
+    },
+  })
+  @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Sign in a user' })
+  @ApiOperation({
+    summary: 'User login',
+    description: 'Authenticate user with email and password',
+  })
+  @ApiBody({
+    type: LoginDto,
+    description: 'User login credentials',
+    examples: {
+      example1: {
+        summary: 'Valid login credentials',
+        value: {
+          email: 'user@example.com',
+          password: 'password123',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'User signed in successfully',
+    description: 'Login successful',
+    schema: {
+      example: {
+        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        user: {
+          id: 1,
+          email: 'user@example.com',
+          walletAddress: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
+        },
+      },
+    },
   })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
+  @ApiUnauthorizedResponse({
     description: 'Invalid credentials',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Invalid credentials',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid input data',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['email must be an email', 'password should not be empty'],
+        error: 'Bad Request',
+      },
+    },
+  })
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get current user profile',
+    description: "Retrieve the authenticated user's profile information",
   })
   @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid input data',
+    status: HttpStatus.OK,
+    description: 'User profile retrieved successfully',
+    schema: {
+      example: {
+        id: 1,
+        email: 'user@example.com',
+        walletAddress: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
+        createdAt: '2024-01-15T10:30:00.000Z',
+      },
+    },
   })
-  @ApiBody({ type: SignInDto })
-  public SignIn(@Body() signinDto: SignInDto) {
-    return this.authService.SignIn(signinDto);
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - Invalid or missing JWT token',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  async getProfile(@Request() req) {
+    return this.authService.getProfile(req.user.id);
   }
 
   @Post('refresh-token')
