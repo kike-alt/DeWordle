@@ -8,7 +8,6 @@ import * as bcrypt from 'bcrypt';
 import { UserService } from 'src/user/user.service';
 import { SignupDto } from './dto/sign-up.dto';
 import { LoginDto } from './dto/login.dto';
-import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class AuthService {
