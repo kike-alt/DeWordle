@@ -40,6 +40,14 @@ export class User {
   @Column()
   password: string;
 
+  @ApiPropertyOptional({
+    description: 'Username for the user',
+    example: 'gamer123',
+    maxLength: 50,
+  })
+  @Column({ nullable: true })
+  username: string;
+
   @ApiProperty({
     description: 'Ethereum wallet address (must be unique)',
     example: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
@@ -50,6 +58,14 @@ export class User {
   })
   @Column({ unique: true })
   walletAddress: string;
+
+  @ApiPropertyOptional({
+    description: 'URL to user avatar image',
+    example: 'https://example.com/avatar.jpg',
+    maxLength: 500,
+  })
+  @Column({ nullable: true })
+  avatarUrl: string;
 
   @ApiProperty({
     description: 'Timestamp when the user was created',
@@ -94,12 +110,24 @@ export class UserResponseDto {
   })
   email: string;
 
+  @ApiPropertyOptional({
+    description: 'Username for the user',
+    example: 'gamer123',
+  })
+  username: string;
+
   @ApiProperty({
     description: 'Ethereum wallet address',
     example: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
     pattern: '^0x[a-fA-F0-9]{40}$',
   })
   walletAddress: string;
+
+  @ApiPropertyOptional({
+    description: 'URL to user avatar image',
+    example: 'https://example.com/avatar.jpg',
+  })
+  avatarUrl: string;
 
   @ApiProperty({
     description: 'Timestamp when the user was created',
