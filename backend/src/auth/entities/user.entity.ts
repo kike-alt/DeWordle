@@ -30,6 +30,9 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Column({ default: 'user' })
+  role: 'user' | 'admin';
+
   @ApiProperty({
     description: 'User password (hashed)',
     example: '$2b$10$K7L/VwzAGO0q7n.4JtOF.uF/8F7G8H9I0J1K2L3M4N5O6P7Q8R9S0T',
