@@ -4,9 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Exclude } from 'class-transformer';
+import { GameSession } from 'src/game-sessions/entities/game-session.entity';
 
 @Entity('users')
 export class User {
@@ -50,6 +52,9 @@ export class User {
   })
   @Column({ nullable: true })
   username: string;
+
+  @OneToMany(() => GameSession, (session) => session.user)
+  sessions: GameSession[];
 
   @ApiProperty({
     description: 'Ethereum wallet address (must be unique)',

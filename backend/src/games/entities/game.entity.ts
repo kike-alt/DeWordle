@@ -1,8 +1,11 @@
+import { GameSession } from 'src/game-sessions/entities/game-session.entity';
 import {
   Column,
   Entity,
   PrimaryGeneratedColumn,
   CreateDateColumn,
+  ManyToOne,
+  OneToMany,
 } from 'typeorm';
 
 @Entity('games')
@@ -18,6 +21,9 @@ export class Game {
 
   @Column('text')
   description: string;
+
+  @OneToMany(() => GameSession, (session) => session.game)
+  sessions: GameSession[];
 
   @Column()
   type: string;
