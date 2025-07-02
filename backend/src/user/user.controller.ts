@@ -24,7 +24,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
-@Controller('user')
+@Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -84,7 +84,7 @@ export class UserController {
     return this.userService.remove(+id);
   }
 
-  @Get('users/:id')
+  @Get(':id')
   async getUserById(@Param('id', ParseIntPipe) id: number) {
     const user = await this.userService.getUserById(id);
     if (!user) {
