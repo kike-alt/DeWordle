@@ -15,6 +15,7 @@ import { User } from './users/entities/user.entity';
 import { SubAdmin } from './sub-admin/entities/sub-admin-entity';
 import { Admin } from './admin/entities/admin.entity';
 import { Word } from './games/dewordle/words/entities/word.entity';
+import { SeedingModule } from './seeding/seeding.module';
 // import envConfiguration from 'config/envConfiguration';
 // import { validate } from '../config/env.validation';
 import { GuestUserModule } from './guest/guest.module';
@@ -38,7 +39,6 @@ import { LetteredBoxModule } from './games/lettered-box/lettered-box.module';
 import { GamesController } from './games/games.controller';
 import { PuzzleModule } from './puzzle/puzzle.module';
 import { StrandsModule } from './games/strands/strands.module';
-import { SeedingModule } from './seeding/seeding.module';
 
 @Module({
   imports: [
