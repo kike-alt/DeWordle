@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { WordsService } from '../words/words.service';
-import { WordsController } from '../words/words.controller';
+import { WordsService } from './words.service';
+import { WordsController } from './words.controller';
 
 @Module({
   controllers: [WordsController],
