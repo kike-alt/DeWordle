@@ -18,10 +18,18 @@ export class WordsController {
 
   @Get('random/:difficulty')
   getRandomWordByDifficulty(
-    @Param('difficulty') difficulty: number,
+    @Param('difficulty') difficulty: string,
     @Query('category') category?: string,
   ) {
-    return this.wordsService.getRandomWordByDifficulty(+difficulty, category);
+    // Map string difficulty to number
+    const difficultyMap: Record<string, number> = {
+      'easy': 1,
+      'medium': 2,
+      'hard': 3
+    };
+    
+    const difficultyNum = difficultyMap[difficulty.toLowerCase()] || parseInt(difficulty) || 1;
+    return this.wordsService.getRandomWordByDifficulty(difficultyNum, category);
   }
 
   @Post('seed')

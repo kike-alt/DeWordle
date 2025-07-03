@@ -128,7 +128,7 @@ import { StrandsModule } from './games/strands/strands.module';
     LetteredBoxModule,
     PuzzleModule,
     StrandsModule,
-    SeedingModule
+    SeedingModule,
   ],
   controllers: [AppController, GuestUserController, GamesController],
   providers: [AppService, GuestUserGuard, RedisService, GuestUserService],
