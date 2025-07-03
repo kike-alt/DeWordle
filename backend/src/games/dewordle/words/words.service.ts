@@ -44,14 +44,6 @@ export class WordsService {
     return { correct: guess === this.wordOfTheDay, hint };
   }
 
-  // Check if a word is valid
-  async isValidWord(word: string): Promise<boolean> {
-    const wordEntity = await this.wordRepository.findOne({
-      where: { text: word.toLowerCase() }
-    });
-    return !!wordEntity;
-  }
-
   // Get a random word
   async getRandomWord(): Promise<Word> {
     const count = await this.wordRepository.count();
@@ -104,18 +96,8 @@ export class WordsService {
   }
 
   // Add a new word
-  async addWord(text: string, isCommon: boolean = true) {
-    const word = this.wordRepository.create({ text, category: isCommon ? 'common' : 'uncommon' });
+  async addWord(text: string, category?: string) {
+    const word = this.wordRepository.create({ text, category, difficulty: 1 });
     return this.wordRepository.save(word);
-  }
-
-  // Get all words
-  async getAllWords(): Promise<Word[]> {
-    return this.wordRepository.find();
-  }
-
-  // Find a specific word
-  async findWord(wordText: string): Promise<Word | null> {
-    return this.wordRepository.findOne({ where: { text: wordText.toLowerCase() } });
   }
 }
