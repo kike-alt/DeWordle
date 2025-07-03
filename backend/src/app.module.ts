@@ -81,31 +81,19 @@ import { StrandsModule } from './games/strands/strands.module';
         process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // SSL Fix
       extra: {
         ssl:
-          process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      },
-    }),
-
-    CacheModule.registerAsync({
-      isGlobal: true,
-      useFactory: async () => {
-        try {
-          const client = createClient({
-            url: 'redis://localhost:6379',
-          });
-          await client.connect();
-
-          return {
-            store: 'redis',
-            client: client,
-            ttl: 300,
-          };
-        } catch (e) {
-          console.warn('Redis connection failed, falling back to memory cache');
-          return {
-            ttl: 300,
-          };
-        }
-      },
+          configService.get('DB_SSL') === 'true'
+            ? {
+                rejectUnauthorized: false,
+              }
+            : false,
+        // entities: [TestEntity],
+        entities: ['dist/**/*.entity{.ts,.js}'],
+        synchronize: configService.get('NODE_ENV') === 'development',
+        logging: configService.get('NODE_ENV') === 'development',
+        migrations: ['dist/migrations/*{.ts,.js}'],
+        migrationsTableName: 'migrations',
+      }),
+      inject: [ConfigService],
     }),
 
     UsersModule,
@@ -127,7 +115,7 @@ import { StrandsModule } from './games/strands/strands.module';
     LetteredBoxModule,
     PuzzleModule,
     StrandsModule,
-    SeedingModule,
+    SeedingModule
   ],
   controllers: [AppController, GuestUserController, GamesController],
   providers: [AppService, GuestUserGuard, RedisService, GuestUserService],
