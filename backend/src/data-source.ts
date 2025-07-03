@@ -19,11 +19,7 @@ export const AppDataSource = new DataSource({
   password: String(process.env.DB_PASSWORD),
   database: process.env.DB_NAME,
   entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
-  migrations: ['dist/src/migrations/*.js'],
-  migrationsRun: true, // Auto-run migrations on startup
+  migrations: ['src/migrations/*.ts'],
   synchronize: false,
-  logging: false, // Reduced logging to avoid clutter
-  ssl: process.env.DB_SSL === 'true' ? {
-    rejectUnauthorized: false
-  } : false,
+  logging: true,
 });
