@@ -15,6 +15,8 @@ import { SubAdmin } from './sub-admin/entities/sub-admin-entity';
 import { Admin } from './admin/entities/admin.entity';
 import { Word } from './games/dewordle/words/entities/word.entity';
 import { SeedingModule } from './seeding/seeding.module';
+// import envConfiguration from 'config/envConfiguration';
+// import { validate } from '../config/env.validation';
 import { GuestUserModule } from './guest/guest.module';
 import { GuestFeaturesModule } from './guest-features/guest-features.module';
 import { CacheModule } from '@nestjs/cache-manager';
@@ -28,6 +30,13 @@ import { PaginationModule } from './common/pagination/pagination-controller.cont
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { join } from 'path';
+import { GamesModule } from './games/games.module';
+import { DictionaryModule } from './dictionary/dictionary.module';
+import { SpellingBeeModule } from './games/spelling-bee/spelling-bee.module';
+import { LetteredBoxModule } from './games/lettered-box/lettered-box.module';
+import { GamesController } from './games/games.controller';
+import { PuzzleModule } from './puzzle/puzzle.module';
+import { StrandsModule } from './games/strands/strands.module';
 import { WordsModule } from './games/dewordle/words/words.module';
 import { GamesModule } from './games/games.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
@@ -75,25 +84,38 @@ import { StrandsModule } from './games/strands/strands.module';
       database: process.env.DB_NAME,
       autoLoadEntities: true,
       entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
+      entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
       migrations: ['src/migrations/*.ts'],
-      synchronize: true,
+      synchronize: false, // Changed to false to prevent schema conflicts
       ssl:
         process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // SSL Fix
       extra: {
         ssl:
-          configService.get('DB_SSL') === 'true'
-            ? {
-                rejectUnauthorized: false,
-              }
-            : false,
-        // entities: [TestEntity],
-        entities: ['dist/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('NODE_ENV') === 'development',
-        logging: configService.get('NODE_ENV') === 'development',
-        migrations: ['dist/migrations/*{.ts,.js}'],
-        migrationsTableName: 'migrations',
-      }),
-      inject: [ConfigService],
+          process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      },
+    }),
+
+    CacheModule.registerAsync({
+      isGlobal: true,
+      useFactory: async () => {
+        try {
+          const client = createClient({
+            url: 'redis://localhost:6379',
+          });
+          await client.connect();
+
+          return {
+            store: 'redis',
+            client: client,
+            ttl: 300,
+          };
+        } catch (error) {
+          console.warn('Redis connection failed, falling back to memory cache', error);
+          return {
+            ttl: 300,
+          };
+        }
+      },
     }),
 
     UsersModule,
@@ -115,7 +137,8 @@ import { StrandsModule } from './games/strands/strands.module';
     LetteredBoxModule,
     PuzzleModule,
     StrandsModule,
-    SeedingModule
+    WordsModule,
+    SeedingModule,
   ],
   controllers: [AppController, GuestUserController, GamesController],
   providers: [AppService, GuestUserGuard, RedisService, GuestUserService],
