@@ -312,7 +312,7 @@ export class PuzzleService {
     invalidWords: string[]
     missingWords: string[]
     foundSpangram: boolean
-  } {
+  }> {
     const puzzle = await this.getPuzzleById(puzzleId)
 
     const validFoundWords = foundWords.filter((word) => puzzle.validWords.includes(word.toUpperCase()))

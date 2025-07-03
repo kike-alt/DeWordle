@@ -270,6 +270,18 @@ describe("SessionService", () => {
       isCompleted: false,
     }
 
+    const mockUser = {
+      id: 1,
+      userStats: {
+        totalPuzzlesCompleted: 0,
+        totalHintsUsed: 0,
+        totalSpangramsFound: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        lastPlayedDate: null,
+      },
+    }
+
     it("should complete session successfully", async () => {
       jest.spyOn(service, "findOne").mockResolvedValue(mockSession as Session)
       mockSessionRepository.save.mockResolvedValue({
@@ -290,6 +302,49 @@ describe("SessionService", () => {
       jest.spyOn(service, "findOne").mockResolvedValue(completedSession as Session)
 
       await expect(service.completeSession(1)).rejects.toThrow(new BadRequestException("Session is already completed"))
+    })
+
+    it("should update user stats on session completion", async () => {
+      jest.spyOn(service, "findOne").mockResolvedValue(mockSession as any)
+      mockUserRepository.findOne.mockResolvedValue(mockUser)
+      mockSessionRepository.save.mockResolvedValue({ ...mockSession, isCompleted: true })
+      mockUserRepository.save = jest.fn().mockResolvedValue(mockUser)
+
+      await service.completeSession(1, 2, true)
+
+      expect(mockUser.userStats.totalPuzzlesCompleted).toBe(1)
+      expect(mockUser.userStats.totalHintsUsed).toBe(2)
+      expect(mockUser.userStats.totalSpangramsFound).toBe(1)
+      expect(mockUser.userStats.currentStreak).toBe(1)
+      expect(mockUser.userStats.longestStreak).toBe(1)
+      expect(mockUser.userStats.lastPlayedDate).not.toBeNull()
+    })
+
+    it("should reset streak if lastPlayedDate is not yesterday", async () => {
+      mockUser.userStats.lastPlayedDate = new Date("2025-06-07")
+
+      jest.spyOn(service, "findOne").mockResolvedValue(mockSession as any)
+      mockUserRepository.findOne.mockResolvedValue(mockUser)
+      mockSessionRepository.save.mockResolvedValue({ ...mockSession, isCompleted: true })
+      mockUserRepository.save = jest.fn().mockResolvedValue(mockUser)
+
+      await service.completeSession(1, 0, false)
+
+      expect(mockUser.userStats.currentStreak).toBe(1)
+    })
+
+    it("should increment streak if lastPlayedDate is yesterday", async () => {
+      mockUser.userStats.lastPlayedDate = new Date("2025-06-08")
+
+      jest.spyOn(service, "findOne").mockResolvedValue(mockSession as any)
+      mockUserRepository.findOne.mockResolvedValue(mockUser)
+      mockSessionRepository.save.mockResolvedValue({ ...mockSession, isCompleted: true })
+      mockUserRepository.save = jest.fn().mockResolvedValue(mockUser)
+
+      await service.completeSession(1, 1, false)
+
+      expect(mockUser.userStats.currentStreak).toBe(2)
+      expect(mockUser.userStats.longestStreak).toBe(2)
     })
   })
 })

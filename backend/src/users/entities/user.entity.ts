@@ -11,6 +11,26 @@ import {
 } from 'typeorm';
 import { Token } from '../../auth/entities/token.entity';
 
+export class UserStats {
+  @Column('int', { default: 0 })
+  totalPuzzlesCompleted: number;
+
+  @Column('int', { default: 0 })
+  totalHintsUsed: number;
+
+  @Column('int', { default: 0 })
+  totalSpangramsFound: number;
+
+  @Column('int', { default: 0 })
+  currentStreak: number;
+
+  @Column('int', { default: 0 })
+  longestStreak: number;
+
+  @Column('date', { nullable: true })
+  lastPlayedDate: Date | null;
+}
+
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
@@ -68,4 +88,7 @@ export class User {
 
   @DeleteDateColumn()
   deletedAt?: Date;
+
+  @Column(() => UserStats)
+  userStats: UserStats;
 }
