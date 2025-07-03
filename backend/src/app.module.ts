@@ -14,8 +14,8 @@ import { Result } from './games/dewordle/result/entities/result.entity';
 import { User } from './users/entities/user.entity';
 import { SubAdmin } from './sub-admin/entities/sub-admin-entity';
 import { Admin } from './admin/entities/admin.entity';
-// import envConfiguration from 'config/envConfiguration';
-// import { validate } from '../config/env.validation';
+import { Word } from './games/dewordle/words/entities/word.entity';
+import { SeedingModule } from './seeding/seeding.module';
 import { GuestUserModule } from './guest/guest.module';
 import { GuestFeaturesModule } from './guest-features/guest-features.module';
 import { CacheModule } from '@nestjs/cache-manager';
@@ -75,7 +75,7 @@ import { StrandsModule } from './games/strands/strands.module';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       autoLoadEntities: true,
-      entities: [User, Result, Leaderboard, Admin, SubAdmin],
+      entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
       migrations: ['src/migrations/*.ts'],
       synchronize: true,
       ssl:
@@ -127,7 +127,8 @@ import { StrandsModule } from './games/strands/strands.module';
     SpellingBeeModule,
     LetteredBoxModule,
     PuzzleModule,
-    StrandsModule
+    StrandsModule,
+    SeedingModule
   ],
   controllers: [AppController, GuestUserController, GamesController],
   providers: [AppService, GuestUserGuard, RedisService, GuestUserService],

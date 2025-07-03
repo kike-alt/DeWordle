@@ -9,6 +9,7 @@ import { Result } from './games/dewordle/result/entities/result.entity';
 import { Leaderboard } from './games/dewordle/leaderboard/entities/leaderboard.entity';
 import { Admin } from './admin/entities/admin.entity';
 import { SubAdmin } from './sub-admin/entities/sub-admin-entity';
+import { Word } from './games/dewordle/words/entities/word.entity';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -17,7 +18,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME,
   password: String(process.env.DB_PASSWORD),
   database: process.env.DB_NAME,
-  entities: [User, Result, Leaderboard, Admin, SubAdmin],
+  entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
   logging: true,
