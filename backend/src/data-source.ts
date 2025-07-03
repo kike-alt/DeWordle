@@ -21,8 +21,5 @@ export const AppDataSource = new DataSource({
   entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
-  logging: false, // Reduced logging to avoid clutter
-  ssl: process.env.DB_SSL === 'true' ? {
-    rejectUnauthorized: false
-  } : false,
+  logging: true,
 });

@@ -14,7 +14,6 @@ import { User } from './users/entities/user.entity';
 import { SubAdmin } from './sub-admin/entities/sub-admin-entity';
 import { Admin } from './admin/entities/admin.entity';
 import { Word } from './games/dewordle/words/entities/word.entity';
-import { SeedingModule } from './seeding/seeding.module';
 // import envConfiguration from 'config/envConfiguration';
 // import { validate } from '../config/env.validation';
 import { GuestUserModule } from './guest/guest.module';
@@ -30,6 +29,7 @@ import { PaginationModule } from './common/pagination/pagination-controller.cont
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { join } from 'path';
+import { WordsModule } from './games/dewordle/words/words.module';
 import { GamesModule } from './games/games.module';
 import { DictionaryModule } from './dictionary/dictionary.module';
 import { SpellingBeeModule } from './games/spelling-bee/spelling-bee.module';
@@ -86,7 +86,7 @@ import { StrandsModule } from './games/strands/strands.module';
       entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
       entities: [User, Result, Leaderboard, Admin, SubAdmin, Word],
       migrations: ['src/migrations/*.ts'],
-      synchronize: false, // Changed to false to prevent schema conflicts
+      synchronize: true,
       ssl:
         process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // SSL Fix
       extra: {
@@ -109,8 +109,8 @@ import { StrandsModule } from './games/strands/strands.module';
             client: client,
             ttl: 300,
           };
-        } catch (error) {
-          console.warn('Redis connection failed, falling back to memory cache', error);
+        } catch (e) {
+          console.warn('Redis connection failed, falling back to memory cache');
           return {
             ttl: 300,
           };
@@ -137,7 +137,6 @@ import { StrandsModule } from './games/strands/strands.module';
     LetteredBoxModule,
     PuzzleModule,
     StrandsModule,
-    WordsModule,
     SeedingModule,
   ],
   controllers: [AppController, GuestUserController, GamesController],
