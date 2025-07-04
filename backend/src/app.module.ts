@@ -7,7 +7,6 @@ import { LeaderboardModule } from './games/dewordle/leaderboard/leaderboard.modu
 import { AdminModule } from './admin/admin.module';
 import { ResultModule } from './games/dewordle/result/result.module';
 import { SubAdminModule } from './sub-admin/sub-admin.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { Leaderboard } from './games/dewordle/leaderboard/entities/leaderboard.entity';
 import { Result } from './games/dewordle/result/entities/result.entity';
 import { User } from './users/entities/user.entity';
