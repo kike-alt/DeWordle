@@ -18,90 +18,88 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   entities: [Word], // Only include Word entity
   synchronize: true, // Enable to create table if it doesn't exist
-  logging: true,
-  ssl: process.env.DB_SSL === 'true' ? {
-    rejectUnauthorized: false
-  } : false,
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  extra: {
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  },
 });
+
+function assignDifficulty(word: string): number {
+  const commonLetters = 'aeiourstlnm';
+  let commonCount = 0;
+  
+  for (const letter of word) {
+    if (commonLetters.includes(letter)) {
+      commonCount++;
+    }
+  }
+  
+  // Assign difficulty based on common letter count
+  if (commonCount >= 4) {
+    return 1; // Easy - mostly common letters
+  } else if (commonCount >= 2) {
+    return 2; // Medium - some common letters
+  } else {
+    return 3; // Hard - few common letters
+  }
+}
 
 async function seedWords() {
   try {
-    console.log('Connecting to database...');
+    console.log('Initializing database connection...');
     await AppDataSource.initialize();
     
-    const wordRepository = AppDataSource.getRepository(Word);
-    
-    // Clear existing words
-    const existingWords = await wordRepository.count();
-    if (existingWords > 0) {
-      console.log(`Clearing ${existingWords} existing words...`);
-      await wordRepository.clear();
-    }
-
-    // Read words from file
+    console.log('Reading words from file...');
     const filePath = join(process.cwd(), 'data', '5-letter-words.txt');
-    console.log(`Reading words from: ${filePath}`);
-    
     const fileContent = readFileSync(filePath, 'utf-8');
+    
     const words = fileContent
       .split('\n')
       .map(word => word.trim().toLowerCase())
-      .filter(word => word.length === 5);
-
-    console.log(`Found ${words.length} valid words`);
-
-    // Create word entities with difficulty assignment
-    const commonLetters = 'aeiourstlnm';
-    const wordEntities = words.map(word => {
-      let commonCount = 0;
-      for (const letter of word) {
-        if (commonLetters.includes(letter)) commonCount++;
-      }
-      
-      let difficulty;
-      if (commonCount >= 4) {
-        difficulty = 1; // Easy
-      } else if (commonCount >= 3) {
-        difficulty = 2; // Medium  
-      } else {
-        difficulty = 3; // Hard
-      }
-
-      const wordEntity = new Word();
-      wordEntity.text = word;
-      wordEntity.category = 'common';
-      wordEntity.difficulty = difficulty;
-      return wordEntity;
+      .filter(word => word.length === 5)
+      .filter((word, index, arr) => arr.indexOf(word) === index); // Remove duplicates
+    
+    console.log(`Found ${words.length} unique 5-letter words`);
+    
+    // Clear existing words
+    console.log('Clearing existing words...');
+    const wordRepository = AppDataSource.getRepository(Word);
+    await wordRepository.clear();
+    
+    // Prepare words with difficulty levels
+    const wordEntities = words.map(wordText => {
+      const word = new Word();
+      word.text = wordText;
+      word.difficulty = assignDifficulty(wordText);
+      return word;
     });
-
-    // Save words in batches
+    
+    // Insert words in batches
+    console.log('Inserting words into database...');
     const batchSize = 100;
     for (let i = 0; i < wordEntities.length; i += batchSize) {
       const batch = wordEntities.slice(i, i + batchSize);
       await wordRepository.save(batch);
-      console.log(`Saved batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(wordEntities.length/batchSize)}`);
+      console.log(`Inserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(wordEntities.length / batchSize)}`);
     }
-
-    console.log(`✅ Successfully seeded ${wordEntities.length} words!`);
     
     // Show difficulty distribution
-    const easyCount = await wordRepository.count({ where: { difficulty: 1 } });
-    const mediumCount = await wordRepository.count({ where: { difficulty: 2 } });
-    const hardCount = await wordRepository.count({ where: { difficulty: 3 } });
+    const difficultyStats = { 1: 0, 2: 0, 3: 0 };
+    wordEntities.forEach(word => {
+      difficultyStats[word.difficulty]++;
+    });
     
-    console.log(`Difficulty distribution:`);
-    console.log(`  Easy: ${easyCount} words`);
-    console.log(`  Medium: ${mediumCount} words`);
-    console.log(`  Hard: ${hardCount} words`);
+    console.log('\n✅ Seeding completed successfully!');
+    console.log(`📊 Total words: ${wordEntities.length}`);
+    console.log(`🟢 Easy (${difficultyStats[1]}), 🟡 Medium (${difficultyStats[2]}), 🔴 Hard (${difficultyStats[3]})`);
     
   } catch (error) {
-    console.error('❌ Error seeding words:', error);
-    process.exit(1);
+    console.error('❌ Error during seeding:', error);
+    throw error;
   } finally {
     await AppDataSource.destroy();
-    console.log('Database connection closed');
   }
 }
 
-// Run the seeding
-seedWords();
+// Run the seeder
+seedWords().catch(console.error);

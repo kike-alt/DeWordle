@@ -1,22 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity('words')
+@Entity()
 export class Word {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true, length: 5 })
+  @Column()
   text: string;
 
   @Column({ nullable: true })
   category: string;
 
-  @Column({ type: 'int', default: 1 })
+  @Column({ type: 'int' })
   difficulty: number;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }
