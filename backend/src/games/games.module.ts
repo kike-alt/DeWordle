@@ -1,16 +1,13 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { DewordleModule } from './dewordle/dewordle.module';
-import { SpellingBeeModule } from './spelling-bee/spelling-bee.module';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Game } from './entities/game.entity';
+import { GamesService } from './games.service';
 import { GamesController } from './games.controller';
-import { HangmanModule } from './hangman/hangman.module';
-// import { PuzzleGeneratorService } from './spelling-bee/services/PuzzleGenerator.service';
-import { DictionaryService } from '../dictionary/dictionary.service';
-import { StrandsModule } from './strands/strands.module';
 
 @Module({
-  imports: [DewordleModule, SpellingBeeModule, forwardRef(() => HangmanModule), StrandsModule],
-  providers: [/*PuzzleGeneratorService,*/ DictionaryService],
+  imports: [TypeOrmModule.forFeature([Game])],
   controllers: [GamesController],
-  exports: [/*PuzzleGeneratorService,*/ DictionaryService, StrandsModule],
+  providers: [GamesService],
+  exports: [GamesService],
 })
 export class GamesModule {}

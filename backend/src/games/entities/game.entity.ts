@@ -1,43 +1,36 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { GameSession } from 'src/game-sessions/entities/game-session.entity';
+import {
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 
-@Entity()
+@Entity('games')
 export class Game {
-  @PrimaryColumn()
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  @Column({ nullable: true })
-  userId: string;
+  @Column({ unique: true })
+  slug: string;
 
   @Column()
-  gameType: string; // 'dewordle', 'spelling-bee', 'hangman'
+  name: string;
 
-  @Column({ nullable: true })
-  word: string;
-  
-  @Column({ nullable: true })
-  category: string;
+  @Column('text')
+  description: string;
 
-  @Column('simple-array', { nullable: true })
-  guessedLetters: string[];
+  @OneToMany(() => GameSession, (session) => session.game)
+  sessions: GameSession[];
 
-  @Column({ nullable: true })
-  wrongGuesses: number;
-  
-  @Column({ type: 'json', nullable: true })
-  additionalState: Record<string, any>; // Game-specific state as JSON
+  @Column()
+  type: string;
 
-  @Column({ default: 'IN_PROGRESS' })
-  status: 'IN_PROGRESS' | 'WON' | 'LOST' | 'PAUSED';
-  
-  @Column({ default: 0 })
-  score: number;
-  
-  @Column({ nullable: true })
-  timeSpent: number;
+  @Column({ default: true })
+  is_active: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
+  created_at: Date;
 }

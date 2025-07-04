@@ -1,72 +1,44 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
-import * as dotenv from 'dotenv';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import {
-  AllExceptionsFilter,
-  ValidationExceptionFilter,
-  AuthExceptionFilter,
-  SessionExceptionFilter,
-  DatabaseExceptionFilter,
-  BlockchainExceptionFilter,
-} from './common/filters';
-import { ValidationPipe, BadRequestException } from '@nestjs/common';
-
-dotenv.config();
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
-  // Swagger configuration (from feature/swagger-documentation)
-  const config = new DocumentBuilder()
-    .setTitle('Dewordle API')
-    .setDescription('API documentation for Dewordle platform')
-    .setVersion('1.0')
-    .addBearerAuth() // Enable JWT authentication in Swagger
-    .build();
+  try {
+    const app = await NestFactory.create(AppModule);
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+    // Enable CORS for your frontend
+    app.enableCors({
+      origin: true,
+      credentials: true,
+    });
 
-  // Global validation pipe (from main)
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      exceptionFactory: (errors) => {
-        const messages = errors.map((error) => {
-          return {
-            property: error.property,
-            constraints: error.constraints,
-          };
-        });
-        return new BadRequestException({
-          message: 'Validation failed',
-          errors: messages,
-        });
-      },
-    }),
-  );
+    // Set global prefix for API routes
+    app.setGlobalPrefix('api/v1');
 
-  // Global filters (from main)
-  // app.useGlobalFilters(
-  //   new ValidationExceptionFilter(),
-  //   new AuthExceptionFilter(),
-  //   new SessionExceptionFilter(),
-  //   new DatabaseExceptionFilter(),
-  //   new BlockchainExceptionFilter(),
-  //   new AllExceptionsFilter(),
-  // );
+    // Swagger configuration
+    const config = new DocumentBuilder()
+      .setTitle('Your Project Title')
+      .setDescription('API documentation for your project')
+      .setVersion('1.0')
+      .addBearerAuth() // if using JWT
+      .build();
 
-  // Enable CORS (from main)
-  app.enableCors({
-    origin: '*', // All locations
-    credentials: true, // Allow cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-  app.setGlobalPrefix('api/v1');
-  await app.listen(process.env.PORT ?? 3000);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+
+    const port = process.env.PORT || 3000;
+    await app.listen(port);
+
+    logger.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
+    logger.log(`📘 Swagger docs available at: http://localhost:${port}/api`);
+    logger.log(`🗄️  Database connection established successfully`);
+  } catch (error) {
+    logger.error('❌ Error starting the application', error);
+    process.exit(1);
+  }
 }
+
 bootstrap();
