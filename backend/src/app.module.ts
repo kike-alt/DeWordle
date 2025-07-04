@@ -37,6 +37,7 @@ import { LetteredBoxModule } from './games/lettered-box/lettered-box.module';
 import { GamesController } from './games/games.controller';
 import { PuzzleModule } from './puzzle/puzzle.module';
 import { StrandsModule } from './games/strands/strands.module';
+import { UserGameStatsModule } from './user-game-stats/user-game-stats.module';
 
 @Module({
   imports: [
@@ -77,7 +78,7 @@ import { StrandsModule } from './games/strands/strands.module';
       autoLoadEntities: true,
       entities: [User, Result, Leaderboard, Admin, SubAdmin],
       migrations: ['src/migrations/*.ts'],
-      synchronize: true,
+      synchronize: false,
       ssl:
         process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // SSL Fix
       extra: {
@@ -127,7 +128,8 @@ import { StrandsModule } from './games/strands/strands.module';
     SpellingBeeModule,
     LetteredBoxModule,
     PuzzleModule,
-    StrandsModule
+    StrandsModule,
+    UserGameStatsModule,
   ],
   controllers: [AppController, GuestUserController, GamesController],
   providers: [AppService, GuestUserGuard, RedisService, GuestUserService],
