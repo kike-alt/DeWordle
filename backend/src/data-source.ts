@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { config } from 'dotenv';
 import { TestEntity } from './entities/test.entity';
-import { Word } from './entities/word.entity';
+import { Word } from './games/dewordle/words/entities/word.entity';
 
 config();
 

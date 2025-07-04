@@ -10,7 +10,7 @@ import { GamesModule } from './games/games.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { GameSessionsModule } from './game-sessions/game-sessions.module';
 import { WordsModule } from './dewordle/words/words.module';
-// TODO: import { WordsModule } from './dewordle/words/words.module';
+import { SeedingModule } from './seeding/seeding.module';
 
 @Module({
   imports: [
@@ -49,6 +49,7 @@ import { WordsModule } from './dewordle/words/words.module';
     UserModule,
     GamesModule,
     WordsModule,
+    SeedingModule,
     // TODO: WordsModule,
   ],
   controllers: [AppController],
