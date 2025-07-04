@@ -1,0 +1,178 @@
+# Score Module API Tests
+# This file contains tests for all the Score Module endpoints
+# Using HTTPyac - https://httpyac.github.io/
+
+@baseUrl = http://localhost:3000
+@userToken = {{userLogin.response.body.access_token}}
+@adminToken = {{adminLogin.response.body.access_token}}
+
+### Variables
+@scoreId = {{submitScore.response.body.id}}
+@categoryAnimal = animals
+@categoryCountry = countries
+@testEmail = test.user@example.com
+@testUsername = testuser123
+@testPassword = Test@123
+
+### Create a new user account first
+# @name createUser
+POST {{baseUrl}}/api/v1/users/create
+Content-Type: application/json
+
+{
+  "userName": "{{testUsername}}",
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
+}
+
+### Verify email (simulate clicking verification link)
+# This step might need to be manually done or mocked depending on your setup
+# GET {{baseUrl}}/api/v1/auth/verify-email/{{verificationToken}}
+
+### Login as user to get user token
+# @name userLogin
+POST {{baseUrl}}/api/v1/auth/sign-in
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
+}
+
+### Store userId from login response
+@userId = {{userLogin.response.body.user.id}}
+
+### Login as admin to get token for protected endpoints
+# @name adminLogin
+POST {{baseUrl}}/api/v1/admin/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin_password"
+}
+
+### Submit a new score
+# @name submitScore
+POST {{baseUrl}}/api/v1/scores
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "username": "TestUser",
+  "score": 150,
+  "word": "elephant",
+  "category": "{{categoryAnimal}}",
+  "wordLength": 8,
+  "wrongGuesses": 2,
+  "timeSpent": 35,
+  "gameId": "game123"
+}
+
+### Submit another score (for testing leaderboard)
+POST {{baseUrl}}/api/v1/scores
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "username": "TestUser",
+  "score": 200,
+  "word": "giraffe",
+  "category": "{{categoryAnimal}}",
+  "wordLength": 7,
+  "wrongGuesses": 1,
+  "timeSpent": 25,
+  "gameId": "game124"
+}
+
+### Submit a score in a different category
+POST {{baseUrl}}/api/v1/scores
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "username": "TestUser",
+  "score": 180,
+  "word": "germany",
+  "category": "{{categoryCountry}}",
+  "wordLength": 7,
+  "wrongGuesses": 2,
+  "timeSpent": 30,
+  "gameId": "game125"
+}
+
+### Submit an anonymous score (no userId)
+POST {{baseUrl}}/api/v1/scores
+Content-Type: application/json
+
+{
+  "score": 120,
+  "word": "france",
+  "category": "{{categoryCountry}}",
+  "wordLength": 6,
+  "wrongGuesses": 3,
+  "timeSpent": 42,
+  "gameId": "game126"
+}
+
+### Get leaderboard (default)
+GET {{baseUrl}}/api/v1/scores/leaderboard
+
+### Get leaderboard with pagination
+GET {{baseUrl}}/api/v1/scores/leaderboard?page=1&limit=5
+
+### Get leaderboard filtered by category
+GET {{baseUrl}}/api/v1/scores/leaderboard?category={{categoryAnimal}}
+
+### Get leaderboard filtered by timeframe (daily)
+GET {{baseUrl}}/api/v1/scores/leaderboard?timeframe=daily
+
+### Get leaderboard filtered by timeframe (weekly)
+GET {{baseUrl}}/api/v1/scores/leaderboard?timeframe=weekly
+
+### Get leaderboard with multiple filters
+GET {{baseUrl}}/api/v1/scores/leaderboard?category={{categoryAnimal}}&timeframe=monthly&page=1&limit=10
+
+### Get top scores for a specific user
+GET {{baseUrl}}/api/v1/scores/user/{{userId}}/top?limit=5
+
+### Get player statistics (specific user)
+GET {{baseUrl}}/api/v1/scores/statistics/player?userId={{userId}}
+
+### Get player statistics (specific user and category)
+GET {{baseUrl}}/api/v1/scores/statistics/player?userId={{userId}}&category={{categoryAnimal}}
+
+### Get global statistics
+GET {{baseUrl}}/api/v1/scores/statistics/global
+
+### Get global statistics for a specific category
+GET {{baseUrl}}/api/v1/scores/statistics/global?category={{categoryAnimal}}
+
+### Submit a suspicious score (too fast)
+# @name suspiciousScore
+POST {{baseUrl}}/api/v1/scores
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "username": "TestUser",
+  "score": 500,
+  "word": "elephant",
+  "category": "{{categoryAnimal}}",
+  "wordLength": 8,
+  "wrongGuesses": 0,
+  "timeSpent": 3,  // Too fast to be legitimate
+  "gameId": "game127"
+}
+
+### Flag a suspicious score (admin only)
+PATCH {{baseUrl}}/api/v1/scores/{{scoreId}}/flag
+Authorization: Bearer {{adminToken}}
+
+### Verify a flagged score (admin only)
+PATCH {{baseUrl}}/api/v1/scores/{{scoreId}}/verify
+Authorization: Bearer {{adminToken}}
+
+### Try to flag a non-existent score (should return 404)
+PATCH {{baseUrl}}/api/v1/scores/99999/flag
+Authorization: Bearer {{adminToken}}

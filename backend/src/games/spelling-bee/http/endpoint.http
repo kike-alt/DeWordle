@@ -1,0 +1,12 @@
+### Submit a word to the spelling bee API
+POST http://localhost:3000/api/v1/spelling-bee/submit-word
+Content-Type: application/json
+
+{
+  "word": "pearly",
+  "puzzle": {
+    "allowedLetters": ["p","e", "r", "l", "y"],
+    "centerLetter": "p",
+    "submittedWords": []
+  }
+}
