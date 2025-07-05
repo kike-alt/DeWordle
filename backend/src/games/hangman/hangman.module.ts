@@ -10,6 +10,7 @@ import { GamesService } from '../games.service';
 import { Word } from './words/entities/word.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Game } from '../entities/game.entity';
+import { UserGameStatsModule } from 'src/user-game-stats/user-game-stats.module';
 
 @Module({
   providers: [HangmanService, HangmanStateService, WordsService, GamesService],
@@ -19,6 +20,7 @@ import { Game } from '../entities/game.entity';
     forwardRef(() => GamesModule),
     TypeOrmModule.forFeature([Word]),
     TypeOrmModule.forFeature([Game]),
+    UserGameStatsModule,
   ],
   controllers: [HangmanController],
 })

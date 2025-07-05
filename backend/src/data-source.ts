@@ -19,6 +19,6 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME,
   entities: [User, Result, Leaderboard, Admin, SubAdmin],
   migrations: ['src/migrations/*.ts'],
-  synchronize: false,
+  synchronize: true,
   logging: true,
 });

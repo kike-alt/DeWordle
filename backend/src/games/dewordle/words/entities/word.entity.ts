@@ -1,14 +1,14 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity()
+@Entity('word')
 export class Word {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: number;
 
-  @Column()
+  @Column({ type: 'text' })
   text: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 50 })
   category: string;
 
   @Column({ type: 'int' })
