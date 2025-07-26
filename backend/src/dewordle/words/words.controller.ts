@@ -127,4 +127,33 @@ export class WordsController {
     return this.wordsService.getHealthStatus();
   }
 
+  @Get('cache/stats')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get cache performance statistics',
+    description: 'Returns cache hit rates, performance metrics, and optimization status',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cache statistics returned successfully',
+    schema: {
+      example: {
+        cacheHits: 45,
+        cacheMisses: 5,
+        totalRequests: 50,
+        hitRate: '90.00%',
+        uptime: '2.5 hours',
+        performance: {
+          isOptimal: true,
+          targetHitRate: '90%',
+          currentStatus: 'OPTIMAL'
+        }
+      },
+    },
+  })
+  async getCacheStats() {
+    this.logger.log('Received request for cache statistics.');
+    return this.wordsService.getCacheStats();
+  }
+
 }
