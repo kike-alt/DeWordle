@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Exclude } from 'class-transformer';
-import { GameSession } from 'src/game-sessions/entities/game-session.entity';
+import { GameSession } from '../../game-sessions/entities/game-session.entity';
 
 @Entity('users')
 export class User {
