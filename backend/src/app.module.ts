@@ -10,6 +10,7 @@ import { GamesModule } from './games/games.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { GameSessionsModule } from './game-sessions/game-sessions.module';
 import { WordsModule } from './dewordle/words/words.module';
+import { WordleSessionModule } from './dewordle/wordle-session.module';
 import { ScheduleModule } from '@nestjs/schedule';
 // TODO: import { WordsModule } from './dewordle/words/words.module';
 
@@ -51,6 +52,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     UserModule,
     GamesModule,
     WordsModule,
+    WordleSessionModule,
+    WordleSessionModule,
     // TODO: WordsModule,
   ],
   controllers: [AppController],
