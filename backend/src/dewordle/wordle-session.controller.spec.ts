@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { WordleSessionController } from './wordle-session.controller';
@@ -151,6 +150,20 @@ describe('WordleSessionController', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(mockService.submitGuess).not.toHaveBeenCalled();
+    });
+
+    it('should handle invalid word validation from service', async () => {
+      mockService.submitGuess.mockRejectedValue(
+        new BadRequestException('Not in word list'),
+      );
+
+      await expect(
+        controller.submitGuess('1', { guess: 'AAAAA' }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockService.submitGuess).toHaveBeenCalledWith(1, {
+        guess: 'AAAAA',
+      });
     });
   });
 });
