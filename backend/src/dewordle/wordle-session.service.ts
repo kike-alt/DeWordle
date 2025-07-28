@@ -8,12 +8,14 @@ import { Repository } from 'typeorm';
 import { WordleSession, GuessHistory } from './entities/wordle-session.entity';
 import { SubmitGuessDto } from './dto/submit-guess.dto';
 import { evaluateGuess } from './wordle.engine';
+import { DictionaryService } from './dictionary.service';
 
 @Injectable()
 export class WordleSessionService {
   constructor(
     @InjectRepository(WordleSession)
     private readonly wordleSessionRepo: Repository<WordleSession>,
+    private readonly dictionaryService: DictionaryService,
   ) {}
 
   async findById(id: number): Promise<WordleSession> {
@@ -35,6 +37,19 @@ export class WordleSessionService {
   ): Promise<WordleSession> {
     const session = await this.findById(sessionId);
 
+    // Normalize guess to uppercase
+    const guess = submitGuessDto.guess.toUpperCase().trim();
+
+    // Validate guess length (additional validation)
+    if (guess.length !== 5) {
+      throw new BadRequestException('Guess must be exactly 5 letters long');
+    }
+
+    // Validate that the guess is a valid word in the dictionary
+    if (!this.dictionaryService.isValidWord(guess)) {
+      throw new BadRequestException('Not in word list');
+    }
+
     // Validate session is not completed
     if (session.isCompleted) {
       throw new BadRequestException('Game session is already completed');
@@ -43,14 +58,6 @@ export class WordleSessionService {
     // Validate attempts remaining
     if (session.attemptsRemaining <= 0) {
       throw new BadRequestException('No attempts remaining');
-    }
-
-    // Normalize guess to uppercase
-    const guess = submitGuessDto.guess.toUpperCase().trim();
-
-    // Validate guess length (additional validation)
-    if (guess.length !== 5) {
-      throw new BadRequestException('Guess must be exactly 5 letters long');
     }
 
     // Evaluate the guess using the wordle engine
