@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { WordleSessionService } from './wordle-session.service';
 import { WordleSession } from './entities/wordle-session.entity';
 import { Word } from '../entities/word.entity';
+import { DictionaryService } from './dictionary.service';
 
 describe('WordleSessionService', () => {
   let service: WordleSessionService;
@@ -31,6 +31,10 @@ describe('WordleSessionService', () => {
     save: jest.fn(),
   };
 
+  const mockDictionaryService = {
+    isValidWord: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -38,6 +42,10 @@ describe('WordleSessionService', () => {
         {
           provide: getRepositoryToken(WordleSession),
           useValue: mockRepository,
+        },
+        {
+          provide: DictionaryService,
+          useValue: mockDictionaryService,
         },
       ],
     }).compile();
@@ -99,6 +107,7 @@ describe('WordleSessionService', () => {
 
       mockRepository.findOne.mockResolvedValue(session);
       mockRepository.save.mockResolvedValue(updatedSession);
+      mockDictionaryService.isValidWord.mockReturnValue(true);
 
       const result = await service.submitGuess(1, { guess: 'WORLD' });
 
@@ -106,6 +115,7 @@ describe('WordleSessionService', () => {
         where: { id: 1 },
         relations: ['targetWord', 'user'],
       });
+      expect(mockDictionaryService.isValidWord).toHaveBeenCalledWith('WORLD');
       expect(mockRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           isWon: true,
@@ -150,6 +160,7 @@ describe('WordleSessionService', () => {
 
       mockRepository.findOne.mockResolvedValue(session);
       mockRepository.save.mockResolvedValue(updatedSession);
+      mockDictionaryService.isValidWord.mockReturnValue(true);
 
       const result = await service.submitGuess(1, { guess: 'AUDIO' });
 
@@ -181,6 +192,7 @@ describe('WordleSessionService', () => {
 
       mockRepository.findOne.mockResolvedValue(session);
       mockRepository.save.mockResolvedValue(updatedSession);
+      mockDictionaryService.isValidWord.mockReturnValue(true);
 
       const result = await service.submitGuess(1, { guess: 'AUDIO' });
 
@@ -223,6 +235,20 @@ describe('WordleSessionService', () => {
       );
     });
 
+    it('should throw BadRequestException for invalid word not in dictionary', async () => {
+      mockRepository.findOne.mockResolvedValue(mockWordleSession);
+      mockDictionaryService.isValidWord.mockReturnValue(false);
+
+      await expect(service.submitGuess(1, { guess: 'AAAAA' })).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.submitGuess(1, { guess: 'AAAAA' })).rejects.toThrow(
+        'Not in word list',
+      );
+
+      expect(mockDictionaryService.isValidWord).toHaveBeenCalledWith('AAAAA');
+    });
+
     it('should normalize guess to uppercase', async () => {
       const session = { ...mockWordleSession };
       mockRepository.findOne.mockResolvedValue(session);
@@ -230,6 +256,7 @@ describe('WordleSessionService', () => {
         ...session,
         guessHistory: [{ guess: 'AUDIO', result: [], timestamp: new Date() }],
       });
+      mockDictionaryService.isValidWord.mockReturnValue(true);
 
       await service.submitGuess(1, { guess: 'audio' });
 
