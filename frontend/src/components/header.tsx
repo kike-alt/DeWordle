@@ -1,7 +1,7 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import Image from 'next/image';
@@ -24,9 +24,11 @@ const navItems = [
 
 export default function Header() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAuthenticated, user } = useAuth();
   const [modal, setModal] = useState(false);
-  const [lastAuthMode, setLastAuthMode] = useState<'login' | 'signup'>('login');
+  const [lastAuthMode, setLastAuthMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
+  const [resetSuccess, setResetSuccess] = useState(false);
   const isActive = (href: string) => pathname === href;
   const avatar = useMemo(() => {
     return createAvatar(adventurer, {
@@ -34,6 +36,20 @@ export default function Header() {
       seed: user?.username || 'user',
     }).toDataUri();
   }, [user]);
+
+  // Check for password reset success
+  useEffect(() => {
+    const resetParam = searchParams.get('reset');
+    if (resetParam === 'success' && !isAuthenticated) {
+      setResetSuccess(true);
+      setModal(true);
+      setLastAuthMode('login');
+      // Clear the URL parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reset');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, isAuthenticated]);
 
   return (
     <div>
@@ -80,9 +96,13 @@ export default function Header() {
               e.preventDefault();
             }}>
               <AuthModal
-                closeModal={() => { setModal(false) }}
+                closeModal={() => {
+                  setModal(false);
+                  setResetSuccess(false);
+                }}
                 initialMode={lastAuthMode}
                 onModeChange={setLastAuthMode}
+                resetSuccess={resetSuccess}
               />
             </PopoverContent>
           </Popover>

@@ -6,10 +6,12 @@ import { useAuth } from '../../../context/AuthContext';
 
 type LoginFormProps = {
   onSwitchToSignup: () => void;
+  onSwitchToForgotPassword: () => void;
   onSuccess: () => void;
+  resetSuccess?: boolean;
 };
 
-export function LoginForm({ onSwitchToSignup, onSuccess }: LoginFormProps) {
+export function LoginForm({ onSwitchToSignup, onSwitchToForgotPassword, onSuccess, resetSuccess }: LoginFormProps) {
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -41,6 +43,13 @@ export function LoginForm({ onSwitchToSignup, onSuccess }: LoginFormProps) {
 
   return (
     <div>
+      {/* Success Message for Password Reset */}
+      {resetSuccess && (
+        <div className="mb-6 p-3 bg-green-500/20 border border-green-500/30 text-green-200 rounded-lg text-sm">
+          Password has been reset successfully! You can now login with your new password.
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
         <div className="mb-6 p-3 bg-red-500/20 border border-red-500/30 text-red-200 rounded-lg text-sm">
@@ -93,6 +102,7 @@ export function LoginForm({ onSwitchToSignup, onSuccess }: LoginFormProps) {
           </div>
           <button
             type="button"
+            onClick={onSwitchToForgotPassword}
             className="text-white text-sm hover:text-purple-300 transition-colors"
           >
             Forgot Password ?
@@ -115,7 +125,7 @@ export function LoginForm({ onSwitchToSignup, onSuccess }: LoginFormProps) {
         {/* Switch to Signup */}
         <div className="text-center">
           <span className="text-white text-sm">
-            Don't have an account?
+            Don&apos;t have an account?
           </span>
           <button
             type="button"
