@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useAuth } from '../../context/AuthContext';
-import { LoginForm } from './LoginModal';
+import { AuthModal } from './auth/AuthModal';
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -26,6 +26,7 @@ export default function Header() {
   const pathname = usePathname();
   const { isAuthenticated, user } = useAuth();
   const [modal, setModal] = useState(false);
+  const [lastAuthMode, setLastAuthMode] = useState<'login' | 'signup'>('login');
   const isActive = (href: string) => pathname === href;
   const avatar = useMemo(() => {
     return createAvatar(adventurer, {
@@ -52,9 +53,8 @@ export default function Header() {
             <div key={item.label} className="flex items-center">
               <Link
                 href={item.href}
-                className={`font-jakarta font-semibold text-lg tracking-wide whitespace-nowrap ${
-                  isActive(item.href) ? 'text-white' : 'text-gray-400'
-                }`}
+                className={`font-jakarta font-semibold text-lg tracking-wide whitespace-nowrap ${isActive(item.href) ? 'text-white' : 'text-gray-400'
+                  }`}
               >
                 {item.label}
               </Link>
@@ -66,19 +66,24 @@ export default function Header() {
         </div>
 
         {!isAuthenticated && (
-          <Popover>
-            <PopoverTrigger>
+          <Popover open={modal} onOpenChange={setModal}>
+            <PopoverTrigger >
               <div className="hidden md:flex">
                 <div
                   className="px-6 py-4 rounded-lg border-[0.5px] border-white bg-transparent hover:bg-white/10 text-white font-jakarta text-lg tracking-wide font-medium leading-6"
-                  onClick={() => setModal(true)}
                 >
                   Login / Sign up
                 </div>
               </div>
             </PopoverTrigger>
-            <PopoverContent>
-              <LoginForm closeModal={() => setModal(false)} />
+            <PopoverContent onInteractOutside={(e) => {
+              e.preventDefault();
+            }}>
+              <AuthModal
+                closeModal={() => { setModal(false) }}
+                initialMode={lastAuthMode}
+                onModeChange={setLastAuthMode}
+              />
             </PopoverContent>
           </Popover>
         )}
