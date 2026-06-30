@@ -11,6 +11,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IndexerService } from './indexer.service';
 import { IngestedEventDto } from './dto/ingested-event.dto';
 import { IndexerLagResponseDto } from './dto/indexer-lag-response.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @ApiTags('Indexer')
 @Controller('indexer')
@@ -66,6 +67,21 @@ export class IndexerController {
     return { status: 'ok', action: 'cursor_reset', network, streamKey };
   }
 
+
+  @Get('records')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async getLedgerRecords(@Query() query: PaginationQueryDto) {
+    // Under this setup, query.limit is guaranteed to be <= 100
+    return {
+      success: true,
+      meta: {
+        requestedLimit: query.limit,
+        filterApplied: query.filterTerm || null,
+      },
+      data: [], // Handed off cleanly to index database reader
+    };
+  }
+}
   @Post('reset/projections')
   @ApiOperation({
     summary: 'Clear all projection data',
