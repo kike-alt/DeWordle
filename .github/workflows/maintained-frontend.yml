@@ -1,0 +1,21 @@
+name: Maintained Frontend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  maintained-frontend:
+    name: Maintained Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: ./.github/actions/setup-node
+
+      - name: Verify Frontend
+        run: npm run verify:frontend

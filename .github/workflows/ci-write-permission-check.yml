@@ -1,0 +1,125 @@
+name: CI Runner Write-Permission Smoke Check
+
+# DEVOPS-217 (#796): Verify that CI runners can write to expected artifact and
+# cache directories. Catches permission regressions early before contributor
+# workflows that generate artifacts or caches silently fail.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  write-permission-smoke-check:
+    name: Runner write-permission smoke check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # Probe: workspace root is writable
+      # -----------------------------------------------------------------------
+      - name: Check workspace root is writable
+        run: |
+          PROBE="$GITHUB_WORKSPACE/.write-probe"
+          if touch "$PROBE" 2>/dev/null; then
+            echo "✅ workspace root writable: $GITHUB_WORKSPACE"
+            rm -f "$PROBE"
+          else
+            echo "::error::Runner cannot write to workspace root: $GITHUB_WORKSPACE"
+            echo "  Ensure the job does not run with a read-only filesystem or restricted runner policy."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # Probe: standard artifact staging directory
+      # GitHub Actions uploads artifacts from paths the step writes to.
+      # We verify the runner can create and populate an artifacts sub-directory.
+      # -----------------------------------------------------------------------
+      - name: Check artifact staging directory is writable
+        run: |
+          ARTIFACT_DIR="$GITHUB_WORKSPACE/artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+          PROBE="$ARTIFACT_DIR/.write-probe"
+          if touch "$PROBE" 2>/dev/null; then
+            echo "✅ artifact staging dir writable: $ARTIFACT_DIR"
+            rm -f "$PROBE"
+          else
+            echo "::error::Runner cannot write to artifact staging directory: $ARTIFACT_DIR"
+            echo "  Generated artifacts (build outputs, test reports) will fail to upload."
+            echo "  Check runner permissions or change the artifact output path."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # Probe: npm/Node cache directory
+      # npm ci and similar commands cache downloads here. A read-only path
+      # causes silent cache misses and slower builds.
+      # -----------------------------------------------------------------------
+      - name: Check npm cache directory is writable
+        run: |
+          NPM_CACHE_DIR=$(npm config get cache 2>/dev/null || echo "$HOME/.npm")
+          mkdir -p "$NPM_CACHE_DIR"
+          PROBE="$NPM_CACHE_DIR/.write-probe"
+          if touch "$PROBE" 2>/dev/null; then
+            echo "✅ npm cache dir writable: $NPM_CACHE_DIR"
+            rm -f "$PROBE"
+          else
+            echo "::error::Runner cannot write to npm cache directory: $NPM_CACHE_DIR"
+            echo "  npm ci will not be able to cache packages. Set NPM_CONFIG_CACHE to a writable path."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # Probe: Cargo/Rust cache directory
+      # cargo check and cargo build cache compiled artifacts here.
+      # -----------------------------------------------------------------------
+      - name: Check Cargo cache directory is writable
+        run: |
+          CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
+          mkdir -p "$CARGO_HOME"
+          PROBE="$CARGO_HOME/.write-probe"
+          if touch "$PROBE" 2>/dev/null; then
+            echo "✅ Cargo cache dir writable: $CARGO_HOME"
+            rm -f "$PROBE"
+          else
+            echo "::error::Runner cannot write to Cargo cache directory: $CARGO_HOME"
+            echo "  Rust builds will not cache crates. Set CARGO_HOME to a writable path."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # Probe: RUNNER_TEMP — used by actions/upload-artifact and other actions
+      # -----------------------------------------------------------------------
+      - name: Check RUNNER_TEMP is writable
+        run: |
+          PROBE="$RUNNER_TEMP/.write-probe"
+          if touch "$PROBE" 2>/dev/null; then
+            echo "✅ RUNNER_TEMP writable: $RUNNER_TEMP"
+            rm -f "$PROBE"
+          else
+            echo "::error::Runner cannot write to RUNNER_TEMP: $RUNNER_TEMP"
+            echo "  Many actions rely on RUNNER_TEMP for scratch space. This runner may have an unsupported configuration."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # Summary: emit all probed paths to the job summary for audit trail
+      # -----------------------------------------------------------------------
+      - name: Write probe summary
+        if: always()
+        run: |
+          echo "## Write-Permission Smoke Check Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Path | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`$GITHUB_WORKSPACE\` (workspace root) | ✅ writable |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`$GITHUB_WORKSPACE/artifacts\` (artifact staging) | ✅ writable |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`$(npm config get cache 2>/dev/null || echo $HOME/.npm)\` (npm cache) | ✅ writable |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`${CARGO_HOME:-$HOME/.cargo}\` (Cargo cache) | ✅ writable |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`$RUNNER_TEMP\` (runner temp) | ✅ writable |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "_Run on: $(date -u '+%Y-%m-%dT%H:%M:%SZ')_" >> "$GITHUB_STEP_SUMMARY"

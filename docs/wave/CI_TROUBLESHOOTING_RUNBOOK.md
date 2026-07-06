@@ -184,6 +184,7 @@ cd soroban && cargo check --workspace
 
 ## Related Docs
 - [Development Guide](../DEVELOPMENT.md)
+- [Debug Recipe Catalog](../DEBUG_RECIPE_CATALOG.md) - Cross-cutting debug recipes for wallet, RPC, database, and additional CI issues
 - [Soroban Local Dev](../SOROBAN_LOCAL_DEV.md)
 - [Wave 5 Execution Plan](./WAVE5_EXECUTION_PLAN.md)
 - [Security Foundation](../SECURITY_FOUNDATION.md)

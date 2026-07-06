@@ -1,0 +1,21 @@
+name: Maintained Soroban Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  maintained-soroban:
+    name: Maintained Soroban Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Soroban Workspace Check
+        run: cargo check --manifest-path soroban/Cargo.toml --workspace

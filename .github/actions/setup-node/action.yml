@@ -1,0 +1,37 @@
+name: Setup Node
+description: >
+  Canonical Node.js setup used across DeWordle CI workflows.
+  Reads the version from .tool-versions by default; callers that need an
+  explicit version (e.g. matrix jobs) pass node-version directly.
+
+inputs:
+  node-version:
+    description: >
+      Explicit Node version to install (e.g. "22").
+      Leave blank (default) to read the pinned version from .tool-versions.
+    required: false
+    default: ""
+  check-latest:
+    description: >
+      When true, setup-node checks whether a newer patch of the resolved
+      version is available and uses it.  Set to "false" for matrix jobs
+      that must pin an exact version for reproducibility.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # ── 1. Install Node ──────────────────────────────────────────────────────
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        # When node-version is blank, setup-node falls back to node-version-file.
+        node-version: ${{ inputs.node-version != '' && inputs.node-version || '' }}
+        node-version-file: ${{ inputs.node-version == '' && '.tool-versions' || '' }}
+        check-latest: ${{ inputs.check-latest }}
+
+    # ── 2. Report resolved version ───────────────────────────────────────────
+    - name: Report Node version
+      shell: bash
+      run: node --version

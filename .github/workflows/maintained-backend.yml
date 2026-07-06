@@ -1,0 +1,21 @@
+name: Maintained Backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  maintained-backend:
+    name: Maintained Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: ./.github/actions/setup-node
+
+      - name: Verify Backend
+        run: npm run verify:backend

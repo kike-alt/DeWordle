@@ -1,33 +1,76 @@
 # Each ownership surface is maintained by a specific contributor track.
 # As legacy modules are retired or migrated, update this file to reflect
 # the current active surfaces and remove retired paths.
+#
+# For detailed ownership information including primary maintainers and fallback reviewers,
+# see docs/CODE_OWNERSHIP_MAP.md
 
-# Default owners for everything not explicitly listed
-* @kike-alt
+# =============================================================================
+# MAINTAINED CANONICAL SURFACES (Active Development)
+# =============================================================================
 
-# Frontend surfaces
-/frontend/ @kike-alt
+# ------------------------------
+# Soroban Smart Contract Layer
+# ------------------------------
+# Primary: Soroban Core Track | Fallback: Infrastructure Track
+/soroban/contracts/ @kike-alt @soroban-maintainers
+/soroban/crates/ @kike-alt @soroban-maintainers
 
-# Backend surfaces
-/backend/ @kike-alt
+# ------------------------------
+# Soroban SDK & Client Libraries
+# ------------------------------
+# Primary: SDK Track | Fallback: Soroban Core Track
+/soroban/sdk/ @kike-alt @sdk-maintainers
 
-# Soroban / Onchain surfaces
-/soroban/ @kike-alt
-/onchain/ @kike-alt
+# ------------------------------
+# Backend Indexer (Maintained Backend Surface)
+# ------------------------------
+# Primary: Indexer Track | Fallback: Backend Platform Track
+/backend/src/indexer/ @kike-alt @indexer-maintainers
+/backend/scripts/reset-indexer.ts @kike-alt @indexer-maintainers
 
-# Shared libraries
-/shared/ @kike-alt
+# ------------------------------
+# Frontend Wallet & Soroban Integration
+# ------------------------------
+# Primary: Frontend Track | Fallback: SDK Track
+/frontend/src/lib/stellar/ @kike-alt @frontend-maintainers
+/frontend/src/lib/soroban/ @kike-alt @frontend-maintainers
 
+# ------------------------------
 # Documentation
-/docs/ @kike-alt
-/_doc/ @kike-alt
+# ------------------------------
+# Primary: Docs & Developer Experience Track | Fallback: All Track Leads
+/docs/ @kike-alt @docs-maintainers
 
-# CI and Automation
-/.github/ @kike-alt
+# ------------------------------
+# CI/CD & Automation
+# ------------------------------
+# Primary: Infrastructure Track | Fallback: DevOps Lead
+/.github/workflows/ @kike-alt @infra-maintainers
+/scripts/ @kike-alt @infra-maintainers
 
-# Scripts
-/scripts/ @kike-alt
+# =============================================================================
+# TRANSITIONAL SURFACES (Critical Bug Fixes Only)
+# =============================================================================
+# These surfaces are in the process of being migrated to Soroban-native implementations
+# Primary: Legacy Migration Track | Fallback: Corresponding new surface maintainers
+/backend/src/auth/ @kike-alt @migration-maintainers
+/backend/src/dewordle/ @kike-alt @migration-maintainers
+/backend/src/games/ @kike-alt @migration-maintainers
+/backend/src/game-sessions/ @kike-alt @migration-maintainers
+/backend/src/leaderboard/ @kike-alt @migration-maintainers
+/frontend/src/components/auth/ @kike-alt @migration-maintainers
+/frontend/src/components/game/ @kike-alt @migration-maintainers
 
-# Root configuration files
-/package.json @kike-alt
-/.tool-versions @kike-alt
+# =============================================================================
+# LEGACY SURFACES (No Active Development - Reference Only)
+# =============================================================================
+# These surfaces are no longer maintained. All PRs targeting these paths will be
+# automatically redirected to the migration track for evaluation.
+/onchain/ @kike-alt @migration-maintainers
+
+# =============================================================================
+# CATCH-ALL (Unclassified surfaces - route to project lead)
+# =============================================================================
+# Default owners for everything not explicitly listed - routes to project lead
+* @kike-alt

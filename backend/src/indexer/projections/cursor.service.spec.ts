@@ -163,3 +163,117 @@ describe('CursorService – rollback failure simulation', () => {
     ).rejects.toThrow('DB write failure');
   });
 });
+
+describe('CursorService.reset (recovery CLI flow tests)', () => {
+  it('successfully resets cursor to genesis state (successful recovery path)', async () => {
+    const cursor = makeCursorEntity(100, 'tx_abc123', 5);
+    const { svc, saved } = makeService(cursor);
+    
+    await svc.reset('testnet', 'core_game');
+    
+    expect(saved).toHaveLength(1);
+    expect(saved[0].lastLedger).toBe(0);
+    expect(saved[0].lastTxHash).toBe('');
+    expect(saved[0].lastEventIndex).toBe(0);
+  });
+
+  it('creates and initializes cursor if it does not exist during reset (edge case recovery)', async () => {
+    const { svc, saved } = makeService(undefined);
+    
+    await svc.reset('testnet', 'core_game');
+    
+    // getOrCreate saves once, reset saves again - expect 2 saves total
+    expect(saved).toHaveLength(2);
+    expect(saved[1].lastLedger).toBe(0);
+    expect(saved[1].network).toBe('testnet');
+    expect(saved[1].streamKey).toBe('core_game');
+  });
+
+  it('successfully advances cursor after reset (valid post-recovery operation)', async () => {
+    const cursor = makeCursorEntity(100, 'tx_abc123', 5);
+    const { svc, saved } = makeService(cursor);
+    
+    // Reset the cursor
+    await svc.reset('testnet', 'core_game');
+    expect(saved[0].lastLedger).toBe(0);
+    
+    // Attempt to advance from genesis (should work)
+    const result = await svc.checkpoint('testnet', 'core_game', 50, 'tx_new', 0);
+    expect(result).toBe(true);
+    expect(saved[1].lastLedger).toBe(50);
+  });
+
+  it('handles database failure during cursor reset (guarded failure mode)', async () => {
+    const cursor = makeCursorEntity(100, 'tx_abc123', 5);
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(cursor),
+      create: jest.fn((d) => Object.assign(new IndexerCursorEntity(), d)),
+      save: jest.fn().mockRejectedValue(new Error('DB connection failed during reset')),
+    };
+    const svc = new CursorService(repo as any);
+    
+    await expect(svc.reset('testnet', 'core_game')).rejects.toThrow('DB connection failed during reset');
+  });
+});
+
+describe('CursorService.resetProjections (projection recovery CLI flow tests)', () => {
+  it('successfully clears all projection data (successful recovery path)', async () => {
+    const mockQuery = jest.fn().mockResolvedValue(undefined);
+    const cursor = makeCursorEntity(100, 'tx_abc123', 5);
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(cursor),
+      create: jest.fn((d) => Object.assign(new IndexerCursorEntity(), d)),
+      save: jest.fn().mockResolvedValue(cursor),
+      manager: {
+        query: mockQuery,
+      },
+    };
+    const svc = new CursorService(repo as any);
+    
+    await svc.resetProjections();
+    
+    expect(mockQuery).toHaveBeenCalledWith('DELETE FROM session_projections');
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles database failure during projection reset (guarded failure mode)', async () => {
+    const mockQuery = jest.fn().mockRejectedValue(new Error('Database timeout during projection clear'));
+    const cursor = makeCursorEntity(100, 'tx_abc123', 5);
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(cursor),
+      create: jest.fn((d) => Object.assign(new IndexerCursorEntity(), d)),
+      save: jest.fn().mockResolvedValue(cursor),
+      manager: {
+        query: mockQuery,
+      },
+    };
+    const svc = new CursorService(repo as any);
+    
+    await expect(svc.resetProjections()).rejects.toThrow('Database timeout during projection clear');
+  });
+
+  it('can reset projections then re-ingest events successfully (end-to-end recovery flow)', async () => {
+    const deleteQuery = jest.fn().mockResolvedValue(undefined);
+    const cursor = makeCursorEntity(100, 'tx_abc123', 5);
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(cursor),
+      create: jest.fn((d) => Object.assign(new IndexerCursorEntity(), d)),
+      save: jest.fn().mockResolvedValue(cursor),
+      manager: {
+        query: deleteQuery,
+      },
+    };
+    const svc = new CursorService(repo as any);
+    
+    // First reset projections
+    await svc.resetProjections();
+    expect(deleteQuery).toHaveBeenCalledWith('DELETE FROM session_projections');
+    
+    // Then reset cursor
+    await svc.reset('testnet', 'core_game');
+    
+    // Verify we can start fresh with new checkpoints
+    const result = await svc.checkpoint('testnet', 'core_game', 101, 'tx_new789', 0);
+    expect(result).toBe(true);
+  });
+});

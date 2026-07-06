@@ -1,0 +1,23 @@
+name: Drift Check
+
+# Detect drift between manifests and lockfiles across different dependency surfaces.
+# Ensures that developers commit lockfile updates when modifying manifests.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  drift-check:
+    name: Check Lockfile Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: ./.github/actions/setup-node
+
+      - name: Run Drift Reporter
+        run: ./scripts/check-drift.sh

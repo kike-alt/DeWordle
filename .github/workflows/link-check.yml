@@ -1,0 +1,23 @@
+name: Link Check
+
+# Validate that all documentation and template links are healthy.
+# Exits non-zero on any broken local references.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  link-check:
+    name: Scan Markdown and Template Links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: ./.github/actions/setup-node
+
+      - name: Run Link Scanner
+        run: npm run docs:linkcheck

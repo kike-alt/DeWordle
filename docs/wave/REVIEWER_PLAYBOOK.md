@@ -77,6 +77,41 @@ Copy this into your review comment when starting a review:
 
 ---
 
+## Cross-Track PR Maintainer Review Checklist
+
+For PRs that touch multiple tracks, use this specialized checklist to ensure complete and consistent review:
+
+Copy this into your review comment for any cross-track PR:
+
+```markdown
+## Cross-Track PR Maintainer Review Checklist
+
+### Dependency Awareness
+- [ ] All inter-track dependencies are explicitly documented in the PR description
+- [ ] Changes to shared interfaces (APIs, contracts, data models) are backwards-compatible
+- [ ] Version constraints are updated in all affected track's configuration files
+- [ ] No circular dependencies introduced between tracks
+- [ ] All dependent track maintainers are tagged for review
+
+### Validation Expectations
+- [ ] End-to-end validation performed across all affected tracks
+- [ ] All track-specific tests pass (unit, integration, E2E for each touched track)
+- [ ] Cross-track integration tests added or updated to cover new interactions
+- [ ] Fixtures updated in all affected tracks to reflect interface changes
+- [ ] Local development environment still works for all touched tracks
+- [ ] Deployment sequence validated if changes require coordinated rollout
+
+### Documentation Updates
+- [ ] Track-specific READMEs updated to reflect new cross-track interactions
+- [ ] Architecture diagrams updated to show new dependencies or interactions
+- [ ] API docs updated for any changed cross-track APIs
+- [ ] Migration guide added if changes require manual steps for track contributors
+- [ ] Troubleshooting section updated for new common cross-track issues
+- [ ] All affected contributor command references updated to reflect changes
+```
+
+---
+
 ## Escalation Policy
 
 ### Blocked PRs

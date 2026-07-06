@@ -192,4 +192,4 @@ sequenceDiagram
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — monorepo structure and runtime flow
 - [SOROBAN_DEPLOYMENT_FLOW.md](./SOROBAN_DEPLOYMENT_FLOW.md) — contract deployment steps
-- [PERSISTENT_VOLUME_SEED_DATA.md](./docs/wave/PERSISTENT_VOLUME_SEED_DATA.md) — local database volume strategy
+- [PERSISTENT_VOLUME_SEED_DATA.md](./wave/PERSISTENT_VOLUME_SEED_DATA.md) — local database volume strategy
