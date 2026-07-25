@@ -121,7 +121,7 @@ export default function RecoveryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
               value={txHash}
@@ -132,7 +132,7 @@ export default function RecoveryPage() {
             <button
               onClick={handleRecover}
               disabled={loading || !txHash.trim()}
-              className="rounded-lg bg-primary-700 px-6 py-3 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-lg bg-primary-700 px-6 py-3 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-30 disabled:cursor-not-allowed touch-target"
             >
               {loading ? "Searching..." : "Recover"}
             </button>
@@ -166,7 +166,7 @@ export default function RecoveryPage() {
             ) : (
               <button
                 onClick={() => wallet.connect()}
-                className="rounded-lg bg-primary-700 px-6 py-3 text-sm font-medium text-white hover:bg-primary-600"
+                className="rounded-lg bg-primary-700 px-6 py-3 text-sm font-medium text-white hover:bg-primary-600 touch-target"
               >
                 Connect Wallet
               </button>

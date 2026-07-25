@@ -1,12 +1,11 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import Image from 'next/image';
 import { Bell } from 'lucide-react';
-import { MenuIcon } from './ui/icons/icon';
 import {
   Popover,
   PopoverContent,
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/popover';
 import { useAuth } from '../../context/AuthContext';
 import { LoginForm } from './LoginModal';
+import { MobileMenu } from './MobileMenu';
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -25,7 +25,6 @@ const navItems = [
 export default function Header() {
   const pathname = usePathname();
   const { isAuthenticated, user } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
   const isActive = (href: string) => pathname === href;
   const avatar = useMemo(() => {
     return createAvatar(adventurer, {
@@ -38,7 +37,7 @@ export default function Header() {
     <div>
       <nav
         aria-label="Main navigation"
-        className="flex items-center rounded-[40px]  fixed z-20 top-5 left-1/2 transform -translate-x-1/2 w-full justify-between lg:justify-center max-w-[90%] lg:max-w-[1088px] mx-auto  gap-4 lg:gap-15 p-5 md:px-4.5 md:py-4 bg-dark-100/30 md:rounded-2xl backdrop-blur-[5px]"
+        className="flex items-center rounded-[40px] fixed z-20 top-5 left-1/2 transform -translate-x-1/2 w-full justify-between lg:justify-center max-w-[90%] lg:max-w-[1088px] mx-auto gap-4 lg:gap-15 p-5 md:px-4.5 md:py-4 bg-dark-100/30 md:rounded-2xl backdrop-blur-[5px]"
       >
         <div className="flex items-center gap-1 md:gap-2">
           <div className="relative w-14 md:w-23 h-4 md:h-6">
@@ -49,19 +48,9 @@ export default function Header() {
           </div>
         </div>
 
-        <button
-          type="button"
-          aria-label="Open menu"
-          aria-expanded={menuOpen}
-          aria-controls="mobile-menu"
-          onClick={() => setMenuOpen((prev) => !prev)}
-          className="block md:hidden"
-        >
-          <MenuIcon aria-hidden="true" />
-        </button>
+        <MobileMenu isAuthenticated={isAuthenticated} />
 
         <ul
-          id="mobile-menu"
           role="list"
           className="hidden lg:flex items-center justify-center p-2.5 w-[35rem]"
         >
@@ -89,7 +78,7 @@ export default function Header() {
               <button
                 type="button"
                 aria-label="Open login or sign up modal"
-                className="hidden md:flex px-6 py-4 rounded-lg border-[0.5px] border-white bg-transparent hover:bg-white/10 text-white font-jakarta text-lg tracking-wide font-medium leading-6 focus:outline-none focus:ring-2 focus:ring-white/60"
+                className="hidden md:flex px-6 py-4 rounded-lg border-[0.5px] border-white bg-transparent hover:bg-white/10 text-white font-jakarta text-lg tracking-wide font-medium leading-6 focus:outline-none focus:ring-2 focus:ring-white/60 touch-target"
               >
                 Login / Sign up
               </button>
@@ -100,7 +89,7 @@ export default function Header() {
           </Popover>
         )}
         {isAuthenticated && (
-          <div className="flex gap-4 items-center">
+          <div className="hidden md:flex gap-4 items-center">
             <div className="border p-1 rounded-full">
               <Image
                 src={avatar}
@@ -113,7 +102,7 @@ export default function Header() {
             <button
               type="button"
               aria-label="View notifications"
-              className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/60 rounded-full p-1"
+              className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/60 rounded-full p-1 touch-target"
             >
               <Bell aria-hidden="true" />
             </button>

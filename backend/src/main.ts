@@ -2,6 +2,8 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { MetricsService } from './dewordle/metrics/metrics.service';
+import { MetricsInterceptor } from './common/metrics.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -9,8 +11,8 @@ async function bootstrap() {
   try {
     const app = await NestFactory.create(AppModule);
 
-    // Restrict CORS to the configured frontend origin.
-    // In development FRONTEND_URL defaults to http://localhost:3000.
+    const metricsService = app.get(MetricsService);
+    app.useGlobalInterceptors(new MetricsInterceptor(metricsService));
     const allowedOrigin = process.env.FRONTEND_URL ?? 'http://localhost:3000';
     app.enableCors({
       origin: allowedOrigin,

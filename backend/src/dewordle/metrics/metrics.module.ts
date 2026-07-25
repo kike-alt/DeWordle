@@ -6,6 +6,7 @@ import { WordsModule } from '../words/words.module';
 @Module({
   imports: [WordsModule],
   controllers: [MetricsController],
-  providers: [MetricsService]
+  providers: [MetricsService],
+  exports: [MetricsService],
 })
 export class MetricsModule {}

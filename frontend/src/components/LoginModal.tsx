@@ -41,12 +41,12 @@ export function LoginForm({ closeModal }: ModalProps) {
   const formId = isSignup ? 'signup-form' : 'login-form';
 
   return (
-    <div className="min-w-[400px] px-2 max-w-md">
+    <div className="min-w-[400px] px-2 max-w-md w-full sm:w-auto">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${formId}-title`}
-        className="rounded-3xl p-8 shadow-2xl"
+        className="rounded-3xl p-6 sm:p-8 shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-md"
         style={{
           background:
             'linear-gradient(135deg, #1a0b3d 0%, #2d1b69 50%, #1a0b3d 100%)',
@@ -59,7 +59,7 @@ export function LoginForm({ closeModal }: ModalProps) {
           <button
             type="button"
             aria-label="Close dialog"
-            className="w-8 h-8 p-2 rounded-full bg-black items-center justify-center flex cursor-pointer border focus:outline-none focus:ring-2 focus:ring-white/60"
+            className="w-8 h-8 p-2 rounded-full bg-black items-center justify-center flex cursor-pointer border focus:outline-none focus:ring-2 focus:ring-white/60 touch-target"
             onClick={() => closeModal()}
           >
             <span aria-hidden="true">✕</span>
@@ -156,7 +156,7 @@ export function LoginForm({ closeModal }: ModalProps) {
             type="submit"
             disabled={isLoading}
             aria-disabled={isLoading}
-            className="w-full px-2 h-14 text-lg font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="w-full px-2 h-14 text-lg font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400 touch-target"
             style={{
               background:
                 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #9333ea 100%)',
@@ -195,7 +195,7 @@ export function LoginForm({ closeModal }: ModalProps) {
         <button
           type="button"
           aria-label="Continue with Google"
-          className="w-full px-2 h-14 bg-transparent border border-white/20 text-white hover:bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/60"
+          className="w-full px-2 h-14 bg-transparent border border-white/20 text-white hover:bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/60 touch-target"
           onClick={() => {
             console.log('Google login clicked');
           }}
