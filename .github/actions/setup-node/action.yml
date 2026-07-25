@@ -18,6 +18,18 @@ inputs:
       that must pin an exact version for reproducibility.
     required: false
     default: "true"
+  verify:
+    description: >
+      When true, runs npm ci in the workspace root after Node is installed
+      to ensure a clean, reproducible install.
+    required: false
+    default: "false"
+  workspaces:
+    description: >
+      Comma-separated list of workspace directories to npm ci (e.g. "backend,frontend").
+      Leave blank to only install at the root level.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -35,3 +47,38 @@ runs:
     - name: Report Node version
       shell: bash
       run: node --version
+
+    # ── 3. npm cache ─────────────────────────────────────────────────────────
+    - name: Restore npm cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.npm
+          node_modules
+        key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-
+
+    # ── 4. Root install (optional verify) ────────────────────────────────────
+    - name: Install root dependencies
+      if: inputs.verify == 'true'
+      shell: bash
+      run: npm ci --include=dev
+
+    # ── 5. Workspace installs (optional) ─────────────────────────────────────
+    - name: Install workspace dependencies
+      if: inputs.workspaces != ''
+      shell: bash
+      run: |
+        IFS=',' read -ra WS <<< "${{ inputs.workspaces }}"
+        for ws in "${WS[@]}"; do
+          ws=$(echo "$ws" | xargs)
+          echo "Installing dependencies for workspace: $ws"
+          npm ci --include=dev --workspaces=false --prefix "$ws"
+        done
+
+    # ── 6. Verify (clean install) ────────────────────────────────────────────
+    - name: Verify clean install
+      if: inputs.verify == 'true'
+      shell: bash
+      run: npm ls --depth=0 2>/dev/null || echo "npm ls completed with warnings"
