@@ -6,17 +6,24 @@ import {
   Query,
   UsePipes,
   ValidationPipe,
+  Req,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
 import { IndexerService } from './indexer.service';
 import { IngestedEventDto } from './dto/ingested-event.dto';
 import { IndexerLagResponseDto } from './dto/indexer-lag-response.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { AuditTrailService } from './audit-trail.service';
+import { AuditAction } from './entities/audit-trail.entity';
 
 @ApiTags('Indexer')
 @Controller('indexer')
 export class IndexerController {
-  constructor(private readonly indexerService: IndexerService) {}
+  constructor(
+    private readonly indexerService: IndexerService,
+    private readonly auditService: AuditTrailService,
+  ) {}
 
   @Get('lag')
   @ApiOperation({
@@ -59,10 +66,25 @@ export class IndexerController {
     @Query('network') network: string,
     @Query('streamKey') streamKey: string,
     @Query('confirm') confirm: string,
+    @Req() req: Request,
   ) {
     if (confirm !== 'true') {
       return { status: 'refused', reason: 'confirm=true required' };
     }
+
+    const user = req.user as
+      | { walletAddress?: string; email?: string }
+      | undefined;
+    const actor = user?.walletAddress ?? user?.email ?? 'unknown';
+
+    await this.auditService.log({
+      action: AuditAction.CURSOR_RESET,
+      actor,
+      network,
+      targetResource: `cursor:${streamKey}`,
+      details: { streamKey, confirm },
+    });
+
     await this.indexerService.resetCursor(network, streamKey);
     return { status: 'ok', action: 'cursor_reset', network, streamKey };
   }
@@ -70,14 +92,13 @@ export class IndexerController {
   @Get('records')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   getLedgerRecords(@Query() query: PaginationQueryDto) {
-    // Under this setup, query.limit is guaranteed to be <= 100
     return {
       success: true,
       meta: {
         requestedLimit: query.limit,
         filterApplied: query.filterTerm || null,
       },
-      data: [], // Handed off cleanly to index database reader
+      data: [],
     };
   }
 
@@ -87,10 +108,25 @@ export class IndexerController {
     description:
       'Deletes all projection rows. Requires confirm=true query param as a safety guard.',
   })
-  async resetProjections(@Query('confirm') confirm: string) {
+  async resetProjections(
+    @Query('confirm') confirm: string,
+    @Req() req: Request,
+  ) {
     if (confirm !== 'true') {
       return { status: 'refused', reason: 'confirm=true required' };
     }
+
+    const user = req.user as
+      | { walletAddress?: string; email?: string }
+      | undefined;
+    const actor = user?.walletAddress ?? user?.email ?? 'unknown';
+
+    await this.auditService.log({
+      action: AuditAction.PROJECTIONS_RESET,
+      actor,
+      details: { confirm },
+    });
+
     await this.indexerService.resetProjections();
     return { status: 'ok', action: 'projections_reset' };
   }

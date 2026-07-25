@@ -8,7 +8,8 @@ export type RewardFieldState = 'available' | 'pending' | 'unavailable';
 
 export class RewardSummaryDto {
   @ApiProperty({
-    description: 'Total reward tokens accrued by the player across all sessions',
+    description:
+      'Total reward tokens accrued by the player across all sessions',
     example: 1500,
   })
   accrued: number;
@@ -28,7 +29,8 @@ export class RewardSummaryDto {
   pendingClaim: number;
 
   @ApiProperty({
-    description: 'Number of finalized sessions that contributed to accrued rewards',
+    description:
+      'Number of finalized sessions that contributed to accrued rewards',
     example: 12,
   })
   sessionCount: number;
@@ -43,7 +45,8 @@ export class RewardSummaryDto {
   state: RewardFieldState;
 
   @ApiPropertyOptional({
-    description: 'ISO timestamp of the most recently indexed session for this player',
+    description:
+      'ISO timestamp of the most recently indexed session for this player',
     example: '2026-06-26T07:00:00.000Z',
   })
   lastUpdatedAt?: string;

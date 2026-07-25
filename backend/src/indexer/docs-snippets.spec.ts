@@ -18,7 +18,11 @@ import * as path from 'path';
 // package.json is at: backend/package.json
 const PACKAGE_JSON_PATH = path.join(__dirname, '..', '..', 'package.json');
 
-let packageJson: { scripts?: Record<string, string>; name?: string; version?: string };
+let packageJson: {
+  scripts?: Record<string, string>;
+  name?: string;
+  version?: string;
+};
 
 beforeAll(() => {
   const raw = fs.readFileSync(PACKAGE_JSON_PATH, 'utf8');
@@ -27,13 +31,23 @@ beforeAll(() => {
 
 describe('QA-216: docs command-snippet verification — backend/package.json scripts', () => {
   // Documented as essential onboarding commands in CONTRIBUTING.md
-  const CONTRIBUTOR_COMMANDS = ['build', 'start', 'start:dev', 'test', 'lint'] as const;
+  const CONTRIBUTOR_COMMANDS = [
+    'build',
+    'start',
+    'start:dev',
+    'test',
+    'lint',
+  ] as const;
 
   // Commands referenced in CI documentation and workflows
   const CI_COMMANDS = ['test:ci', 'typecheck', 'lint:ci'] as const;
 
   // Commands referenced in the database setup docs
-  const DB_COMMANDS = ['db:setup', 'typeorm:migration:run', 'seed:words'] as const;
+  const DB_COMMANDS = [
+    'db:setup',
+    'typeorm:migration:run',
+    'seed:words',
+  ] as const;
 
   it('package.json is readable and has a scripts section', () => {
     expect(packageJson).toBeDefined();
@@ -82,7 +96,9 @@ describe('QA-216: docs command-snippet verification — backend/package.json scr
   it('no documented script references a non-existent binary (sanity check)', () => {
     const scripts = Object.values(packageJson.scripts ?? {});
     // None of the critical scripts should reference a clearly wrong binary
-    const suspicious = scripts.filter((s) => s.includes('undefined') || s.includes('null'));
+    const suspicious = scripts.filter(
+      (s) => s.includes('undefined') || s.includes('null'),
+    );
     expect(suspicious).toHaveLength(0);
   });
 });

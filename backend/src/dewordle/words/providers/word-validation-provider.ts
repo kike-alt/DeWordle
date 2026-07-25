@@ -13,7 +13,8 @@ type DictionaryLookupResult = {
 export class WordValidationProvider {
   private readonly logger = new Logger(WordValidationProvider.name);
   private readonly wiktionaryBaseUrl = 'https://en.wiktionary.org/w/api.php';
-  private readonly oxfordBaseUrl = 'https://od-api.oxforddictionaries.com/api/v2';
+  private readonly oxfordBaseUrl =
+    'https://od-api.oxforddictionaries.com/api/v2';
 
   public async validateWord(wordText: string) {
     const reasons: string[] = [];

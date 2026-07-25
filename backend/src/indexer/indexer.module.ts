@@ -14,9 +14,12 @@ import { IngestedEventEntity } from './entities/ingested-event.entity';
 import { SessionProjectionEntity } from './entities/session-projection.entity';
 import { IndexerCursorEntity } from './entities/indexer-cursor.entity';
 import { RegistrySnapshotEntity } from './entities/registry-snapshot.entity';
+import { AuditTrailEntity } from './entities/audit-trail.entity';
 import { RegistrySnapshotService } from './registry/registry-snapshot.service';
 import { RewardSummaryService } from './reward-summary.service';
 import { RewardSummaryController } from './reward-summary.controller';
+import { AuditTrailService } from './audit-trail.service';
+import { AuditController } from './audit-trail.controller';
 
 @Module({
   imports: [
@@ -25,9 +28,10 @@ import { RewardSummaryController } from './reward-summary.controller';
       SessionProjectionEntity,
       IndexerCursorEntity,
       RegistrySnapshotEntity,
+      AuditTrailEntity,
     ]),
   ],
-  controllers: [IndexerController, RewardSummaryController],
+  controllers: [IndexerController, RewardSummaryController, AuditController],
   providers: [
     IndexerService,
     EventProcessorService,
@@ -40,6 +44,7 @@ import { RewardSummaryController } from './reward-summary.controller';
     IndexerWorkerService,
     RegistrySnapshotService,
     RewardSummaryService,
+    AuditTrailService,
   ],
   exports: [
     IndexerService,
@@ -47,6 +52,7 @@ import { RewardSummaryController } from './reward-summary.controller';
     CursorService,
     EventNormalizerService,
     AdminRegistryProcessorService,
+    AuditTrailService,
   ],
 })
 export class IndexerModule {}

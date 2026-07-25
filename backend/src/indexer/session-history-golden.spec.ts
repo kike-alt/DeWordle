@@ -44,7 +44,10 @@ describe('QA-209: RewardSummaryService — golden fixture tests', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     service = module.get(RewardSummaryService);
@@ -60,7 +63,7 @@ describe('QA-209: RewardSummaryService — golden fixture tests', () => {
 
     // Golden snapshot
     expect(result).toMatchObject({
-      accrued: 4,      // 6 - 3 + 1
+      accrued: 4, // 6 - 3 + 1
       claimed: 0,
       pendingClaim: 4,
       sessionCount: 1,
@@ -96,7 +99,7 @@ describe('QA-209: RewardSummaryService — golden fixture tests', () => {
 
     const result = await service.getForPlayer('testnet', 'GABC');
 
-    expect(result.accrued).toBe(11);  // 6 + 4 + 1
+    expect(result.accrued).toBe(11); // 6 + 4 + 1
     expect(result.sessionCount).toBe(3);
     expect(result.pendingClaim).toBe(11);
   });
@@ -110,7 +113,7 @@ describe('QA-209: RewardSummaryService — golden fixture tests', () => {
 
     const result = await service.getForPlayer('testnet', 'GABC');
 
-    expect(result.accrued).toBe(5);  // 6 - 2 + 1 = 5; Lost contributes 0
+    expect(result.accrued).toBe(5); // 6 - 2 + 1 = 5; Lost contributes 0
     expect(result.sessionCount).toBe(2);
   });
 
@@ -137,7 +140,7 @@ describe('QA-209: RewardSummaryService — golden fixture tests', () => {
     ]);
 
     const result = await service.getForPlayer('testnet', 'GABC');
-    expect(result.accrued).toBe(1);  // 6 - 6 + 1
+    expect(result.accrued).toBe(1); // 6 - 6 + 1
   });
 
   // -- 1-attempt win fixture ------------------------------------------------
@@ -147,6 +150,6 @@ describe('QA-209: RewardSummaryService — golden fixture tests', () => {
     ]);
 
     const result = await service.getForPlayer('testnet', 'GABC');
-    expect(result.accrued).toBe(6);  // 6 - 1 + 1
+    expect(result.accrued).toBe(6); // 6 - 1 + 1
   });
 });

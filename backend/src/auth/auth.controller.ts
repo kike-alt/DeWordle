@@ -281,7 +281,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Refresh access token',
-    description: 'Exchange a valid refresh token for a new access token and refresh token.',
+    description:
+      'Exchange a valid refresh token for a new access token and refresh token.',
   })
   @ApiBody({
     type: RefreshTokenDto,
@@ -352,7 +353,9 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Unauthorized - Invalid or missing JWT token',
   })
-  async getSessions(@Request() req: ExpressRequest & { user: { id: number; email: string } }) {
+  async getSessions(
+    @Request() req: ExpressRequest & { user: { id: number; email: string } },
+  ) {
     return this.authService.getSessions(req.user.email);
   }
 }

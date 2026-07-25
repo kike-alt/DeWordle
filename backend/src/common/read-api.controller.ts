@@ -2,10 +2,18 @@ import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Cache } from 'cache-manager';
 import { SessionProjectionEntity } from '../indexer/entities/session-projection.entity';
-import { AchievementSummaryDto, AchievementEntryDto } from './achievement-summary.dto';
+import {
+  AchievementSummaryDto,
+  AchievementEntryDto,
+} from './achievement-summary.dto';
 import { PlayerSummaryDto } from './player-profile.dto';
 import { SessionHistoryDto } from './session-history.dto';
 import { CacheLoggerService } from './cache-logger.service';
@@ -124,7 +132,9 @@ export class ReadApiController {
 
     const totalSessions = sessions.length;
     const finalizedSessions = sessions.filter((s) => s.finalized);
-    const totalWins = finalizedSessions.filter((s) => s.status === 'Finalized').length;
+    const totalWins = finalizedSessions.filter(
+      (s) => s.status === 'Finalized',
+    ).length;
 
     const sortedDates = finalizedSessions
       .map((s) => s.updatedAt)
@@ -172,7 +182,11 @@ export class ReadApiController {
     description:
       'Returns paginated session history from projection data, filterable by player address.',
   })
-  @ApiQuery({ name: 'player', required: false, description: 'Filter by player wallet address' })
+  @ApiQuery({
+    name: 'player',
+    required: false,
+    description: 'Filter by player wallet address',
+  })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({ name: 'take', required: false, type: Number })
   @ApiOkResponse({ type: SessionHistoryDto })

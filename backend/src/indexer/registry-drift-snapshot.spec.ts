@@ -16,7 +16,10 @@
  *   2. FE_SDK_TOPICS below
  *   3. FRONTEND_LIB_TOPICS below
  */
-import { EventNormalizerService, ALLOWED_TOPICS } from './processors/event-normalizer.service';
+import {
+  EventNormalizerService,
+  ALLOWED_TOPICS,
+} from './processors/event-normalizer.service';
 
 // ---------------------------------------------------------------------------
 // Inline registry snapshots (mirror what FE SDK / frontend lib export)
@@ -107,7 +110,9 @@ describe('QA-215: contract registry — drift detection', () => {
     const staleSdkTopics = new Set([...FE_SDK_TOPICS]);
     staleSdkTopics.delete('achievement_unlocked');
 
-    const orphanedInBE = [...ALLOWED_TOPICS].filter((t) => !staleSdkTopics.has(t));
+    const orphanedInBE = [...ALLOWED_TOPICS].filter(
+      (t) => !staleSdkTopics.has(t),
+    );
     expect(orphanedInBE).toContain('achievement_unlocked');
   });
 

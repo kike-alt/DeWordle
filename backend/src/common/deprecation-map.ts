@@ -104,7 +104,9 @@ export function getDeprecationMap(): EndpointEntry[] {
   return DEPRECATION_MAP;
 }
 
-export function getEndpointsByStatus(status: EndpointEntry['status']): EndpointEntry[] {
+export function getEndpointsByStatus(
+  status: EndpointEntry['status'],
+): EndpointEntry[] {
   return DEPRECATION_MAP.filter((e) => e.status === status);
 }
 

@@ -33,7 +33,12 @@ export class AchievementSummaryDto {
   @ApiProperty({
     type: [AchievementEntryDto],
     example: [
-      { id: 'first_win', name: 'First Win', state: 'unlocked', unlockedAt: '2026-07-25T10:30:00.000Z' },
+      {
+        id: 'first_win',
+        name: 'First Win',
+        state: 'unlocked',
+        unlockedAt: '2026-07-25T10:30:00.000Z',
+      },
       { id: 'streak_3', name: '3-Day Streak', state: 'pending' },
     ],
   })
