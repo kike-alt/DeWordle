@@ -49,7 +49,20 @@ function makeController(
     count: async () => rows.length,
   } as unknown as Repository<SessionProjectionEntity>;
 
-  return new ReadApiController(repo);
+  const mockCache = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  } as unknown as any;
+
+  const mockCacheLogger = {
+    hit: jest.fn(),
+    miss: jest.fn(),
+    set: jest.fn(),
+    invalidation: jest.fn(),
+  } as unknown as any;
+
+  return new ReadApiController(repo, mockCache, mockCacheLogger);
 }
 
 // ---------------------------------------------------------------------------

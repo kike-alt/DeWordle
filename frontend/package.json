@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "test:cross-browser": "playwright test",
     "analyze": "ANALYZE=true next build",
-    "bundle:check": "ANALYZE=true next build 2>&1 | grep -E '(First|Client|Shared|pages)' || echo 'Bundle analysis complete. See .next/analyze/'"
+    "bundle:check": "ANALYZE=true next build 2>&1 | grep -E '(First|Client|Shared|pages)' || echo 'Bundle analysis complete. See .next/analyze/'",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@dewordle/soroban-sdk": "file:../soroban/sdk/ts",
@@ -37,6 +39,12 @@
     "@eslint/eslintrc": "^3",
     "@next/bundle-analyzer": "^15.4.4",
     "@playwright/test": "^1.52.0",
+    "@storybook/addon-a11y": "^8.6.14",
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/addon-links": "^8.6.14",
+    "@storybook/blocks": "^8.6.14",
+    "@storybook/react": "^8.6.14",
+    "@storybook/react-vite": "^8.6.14",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
@@ -49,6 +57,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.4",
     "jsdom": "^26.1.0",
+    "storybook": "^8.6.14",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5",

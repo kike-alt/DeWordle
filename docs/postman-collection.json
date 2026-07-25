@@ -1,0 +1,153 @@
+{
+  "info": {
+    "name": "DeWordle API",
+    "description": "Backend API for DeWordle game services. All endpoints require Bearer token authentication.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "dewordle-api"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Read API",
+      "description": "Read-only endpoints backed by indexed projection data",
+      "item": [
+        {
+          "name": "Get Achievement Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/achievements/:address",
+              "host": ["{{baseUrl}}"],
+              "path": ["achievements", ":address"],
+              "variable": [
+                {
+                  "key": "address",
+                  "value": "GAXPJ42...S5Q2L"
+                }
+              ]
+            },
+            "description": "Returns unlocked, pending, and unavailable achievement states from projection data."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Player Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/players/:address/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["players", ":address", "summary"],
+              "variable": [
+                {
+                  "key": "address",
+                  "value": "GAXPJ42...S5Q2L"
+                }
+              ]
+            },
+            "description": "Returns player profile summary including streaks, totals, and recent activity."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions?player=&skip=0&take=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["sessions"],
+              "query": [
+                { "key": "player", "value": "", "description": "Filter by player wallet address" },
+                { "key": "skip", "value": "0", "description": "Page offset" },
+                { "key": "take", "value": "20", "description": "Page size (1-100)" }
+              ]
+            },
+            "description": "Returns paginated session history from projection data."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Deprecation Map",
+      "description": "Endpoint deprecation status tracking",
+      "item": [
+        {
+          "name": "Get All Endpoints",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/deprecation",
+              "host": ["{{baseUrl}}"],
+              "path": ["deprecation"]
+            },
+            "description": "Returns full deprecation map for all pre-Soroban REST endpoints."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Endpoints",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/deprecation/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["deprecation", "active"]
+            },
+            "description": "Returns active (stable) endpoints."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transitional Endpoints",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/deprecation/transitional",
+              "host": ["{{baseUrl}}"],
+              "path": ["deprecation", "transitional"]
+            },
+            "description": "Returns transitional endpoints."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deprecated Endpoints",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/deprecation/deprecated",
+              "host": ["{{baseUrl}}"],
+              "path": ["deprecation", "deprecated"]
+            },
+            "description": "Returns deprecated endpoints."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
