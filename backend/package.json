@@ -36,6 +36,7 @@
     "db:setup": "npm run typeorm:migration:run && npm run seed:words"
   },
   "dependencies": {
+    "@nestjs/cache-manager": "^3.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -49,6 +50,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
+    "cache-manager": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "date-fns": "^4.1.0",
