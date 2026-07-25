@@ -25,20 +25,19 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
       - name: Build app
         run: npm run build
         working-directory: frontend
 
-      - name: Start server
-        run: npm run start &
-        working-directory: frontend
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:3000 --timeout 60000
-
-      - name: Run Playwright + axe accessibility tests
+      - name: Run Playwright accessibility tests
         run: npx playwright test e2e/accessibility.spec.ts --reporter=list
         working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
 
       - name: Upload accessibility report
         if: always()
