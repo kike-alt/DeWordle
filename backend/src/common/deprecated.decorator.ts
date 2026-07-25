@@ -4,9 +4,9 @@ export const DEPRECATED_METADATA = 'deprecated_version';
 export const SUNSET_METADATA = 'sunset_date';
 
 export function Deprecated(version: string, sunsetDate?: string) {
-  const defaultSunset = new Date(
-    Date.now() + 180 * 24 * 60 * 60 * 1000,
-  ).toISOString().split('T')[0];
+  const defaultSunset = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split('T')[0];
 
   return (
     target: object,

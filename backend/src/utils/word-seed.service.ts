@@ -46,7 +46,9 @@ export class WordSeedService {
 
       // If force is true and words exist, clear them first
       if (force && existingWordsCount > 0) {
-        this.logger.log(`Force seeding enabled. Clearing existing ${existingWordsCount} words...`);
+        this.logger.log(
+          `Force seeding enabled. Clearing existing ${existingWordsCount} words...`,
+        );
         await this.wordRepository.clear();
         this.logger.log('Existing words cleared successfully.');
       }

@@ -39,14 +39,14 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const standardizedEmail = email.toLowerCase().trim();
     const user = await this.userService.findByEmail(standardizedEmail);
-    
+
     // Mitigate User Enumeration: Instantly return without disclosing system presence
-    if (!user) return; 
+    if (!user) return;
 
     // Generate high-entropy secure source random token signatures
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    
+
     // Harden Lifespan: Restrict expiry window parameters strictly down to 15 minutes
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
@@ -66,7 +66,7 @@ export class AuthService {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${baseUrl}/reset-password?token=${token}`;
     const html = `<p>You requested a password reset. <a href="${resetUrl}">Click here to reset your password</a>. This link will expire in 15 minutes.</p>`;
-    
+
     await this.emailService.sendMail(
       user.email,
       'Password Reset Request',
@@ -80,23 +80,28 @@ export class AuthService {
    */
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    
+
     // Find valid matching unexpired records directly in data storage rows
     const reset = await this.passwordResetRepo.findOne({
-      where: { 
+      where: {
         tokenHash,
-        expiresAt: MoreThan(new Date())
+        expiresAt: MoreThan(new Date()),
       },
       relations: ['user'],
     });
 
     if (!reset) {
-      throw new UnauthorizedException('The password reset link is invalid or has expired.');
+      throw new UnauthorizedException(
+        'The password reset link is invalid or has expired.',
+      );
     }
 
     // Securely update password using high workload iteration pools
-    reset.user.password = await bcrypt.hash(newPassword, this.BCRYPT_SALT_ROUNDS);
-    await this.userService.create(reset.user); 
+    reset.user.password = await bcrypt.hash(
+      newPassword,
+      this.BCRYPT_SALT_ROUNDS,
+    );
+    await this.userService.create(reset.user);
 
     // Replay Protection: Instantly invalidate used entity reference tracking markers
     await this.passwordResetRepo.delete({ id: reset.id });
@@ -121,7 +126,8 @@ export class AuthService {
     const { email, password, username } = signupDto;
     const standardizedEmail = email.toLowerCase().trim();
 
-    const existingByEmail = await this.userService.findByEmail(standardizedEmail);
+    const existingByEmail =
+      await this.userService.findByEmail(standardizedEmail);
     if (existingByEmail) {
       throw new ConflictException('Email already exists');
     }

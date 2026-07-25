@@ -192,12 +192,18 @@ describe('Read-API error-shape contract', () => {
     });
 
     it('accepts error body without optional "error" key', () => {
-      expect(isValidErrorShape({ statusCode: 400, message: 'Bad request' })).toBe(true);
+      expect(
+        isValidErrorShape({ statusCode: 400, message: 'Bad request' }),
+      ).toBe(true);
     });
 
     it('accepts error body with array message (ValidationPipe format)', () => {
       expect(
-        isValidErrorShape({ statusCode: 422, message: ['field must be string'], error: 'Unprocessable Entity' }),
+        isValidErrorShape({
+          statusCode: 422,
+          message: ['field must be string'],
+          error: 'Unprocessable Entity',
+        }),
       ).toBe(true);
     });
 

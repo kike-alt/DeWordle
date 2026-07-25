@@ -1,4 +1,9 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Reflector } from '@nestjs/core';
@@ -24,11 +29,12 @@ export class DeprecationInterceptor implements NestInterceptor {
       tap(() => {
         const response = context.switchToHttp().getResponse();
         response.setHeader('Deprecation', `true`);
-        response.setHeader('Sunset', sunsetDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toUTCString());
         response.setHeader(
-          'Link',
-          `</api/v2>; rel="successor-version"`,
+          'Sunset',
+          sunsetDate ||
+            new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toUTCString(),
         );
+        response.setHeader('Link', `</api/v2>; rel="successor-version"`);
       }),
     );
   }

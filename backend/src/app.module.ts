@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { validateEnv } from './config/env.validation';
 import { AppController } from './app.controller';
@@ -18,6 +19,7 @@ import { MetricsController } from './dewordle/metrics/metrics.controller';
 import { IndexerModule } from './indexer/indexer.module';
 import { ReadApiController } from './common/read-api.controller';
 import { DeprecationController } from './common/deprecation.controller';
+import { WalletRateLimitGuard } from './common/rate-limit.guard';
 import { AppCacheModule } from './common/cache.module';
 import { CacheMetricsService } from './common/cache-metrics.service';
 import { CacheLoggerService } from './common/cache-logger.service';
@@ -30,6 +32,41 @@ import { JobModule } from './common/job.module';
       isGlobal: true,
       envFilePath: ['.env', '.env.development'],
       validate: validateEnv,
+    }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        throttlers: [
+          {
+            ttl:
+              Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) *
+              1000,
+            limit: Number.parseInt(
+              configService.get('RATE_LIMIT_AUTH') ?? '5',
+              10,
+            ),
+          },
+          {
+            ttl:
+              Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) *
+              1000,
+            limit: Number.parseInt(
+              configService.get('RATE_LIMIT_GAME_SESSIONS') ?? '30',
+              10,
+            ),
+          },
+          {
+            ttl:
+              Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) *
+              1000,
+            limit: Number.parseInt(
+              configService.get('RATE_LIMIT_READ_API') ?? '100',
+              10,
+            ),
+          },
+        ],
+      }),
     }),
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
@@ -68,7 +105,20 @@ import { JobModule } from './common/job.module';
     VersioningModule,
     JobModule,
   ],
-  controllers: [AppController, MetricsController, ReadApiController, DeprecationController],
-  providers: [AppService, CacheLoggerService, CacheMetricsService],
+  controllers: [
+    AppController,
+    MetricsController,
+    ReadApiController,
+    DeprecationController,
+  ],
+  providers: [
+    AppService,
+    CacheLoggerService,
+    CacheMetricsService,
+    {
+      provide: 'APP_GUARD',
+      useClass: WalletRateLimitGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -28,7 +28,9 @@ describe('validateRpcResponseShape', () => {
   });
 
   it('throws and includes receivedType when body is a primitive', () => {
-    expect(() => validateRpcResponseShape('string')).toThrow(RpcValidationError);
+    expect(() => validateRpcResponseShape('string')).toThrow(
+      RpcValidationError,
+    );
     expect(() => validateRpcResponseShape(42)).toThrow(RpcValidationError);
   });
 
@@ -111,9 +113,9 @@ describe('validateRpcResponseShape', () => {
     expect(() =>
       validateRpcResponseShape({ result: { events: null } }),
     ).toThrow('"result.events" is not an array');
-    expect(() =>
-      validateRpcResponseShape({ result: { events: {} } }),
-    ).toThrow('"result.events" is not an array');
+    expect(() => validateRpcResponseShape({ result: { events: {} } })).toThrow(
+      '"result.events" is not an array',
+    );
   });
 
   it('includes receivedType in context for events shape error', () => {
@@ -176,7 +178,9 @@ describe('diagnoseMalformedEvent', () => {
   });
 
   it('returns null for eventIndex of 0 (zero is valid)', () => {
-    expect(diagnoseMalformedEvent(makeValidRaw({ eventIndex: 0 }), 0)).toBeNull();
+    expect(
+      diagnoseMalformedEvent(makeValidRaw({ eventIndex: 0 }), 0),
+    ).toBeNull();
   });
 
   it('reports non-object event (null)', () => {
@@ -198,7 +202,10 @@ describe('diagnoseMalformedEvent', () => {
   });
 
   it('reports missing contractId', () => {
-    const diag = diagnoseMalformedEvent(makeValidRaw({ contractId: undefined }), 0);
+    const diag = diagnoseMalformedEvent(
+      makeValidRaw({ contractId: undefined }),
+      0,
+    );
     expect(diag!.missingFields).toContain('contractId');
   });
 
@@ -280,7 +287,13 @@ describe('diagnoseMalformedEvent', () => {
 
   it('reports multiple problems in a single call', () => {
     const diag = diagnoseMalformedEvent(
-      { contractId: undefined, txHash: 999, ledger: undefined, eventIndex: 0, topic: 'ok' },
+      {
+        contractId: undefined,
+        txHash: 999,
+        ledger: undefined,
+        eventIndex: 0,
+        topic: 'ok',
+      },
       5,
     );
     expect(diag!.index).toBe(5);
@@ -290,12 +303,17 @@ describe('diagnoseMalformedEvent', () => {
   });
 
   it('includes the correct index in the diagnostic', () => {
-    const diag = diagnoseMalformedEvent(makeValidRaw({ contractId: undefined }), 7);
+    const diag = diagnoseMalformedEvent(
+      makeValidRaw({ contractId: undefined }),
+      7,
+    );
     expect(diag!.index).toBe(7);
   });
 
   it('does not flag null payload (null is treated as absent)', () => {
     // null payload is skipped — normalization defaults it to {}
-    expect(diagnoseMalformedEvent(makeValidRaw({ payload: null }), 0)).toBeNull();
+    expect(
+      diagnoseMalformedEvent(makeValidRaw({ payload: null }), 0),
+    ).toBeNull();
   });
 });

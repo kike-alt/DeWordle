@@ -45,7 +45,10 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     service = module.get(RewardSummaryService);
@@ -84,7 +87,9 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
       await service.getForPlayer('mainnet', 'GPLAYER');
 
       expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ network: 'mainnet' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ network: 'mainnet' }),
+        }),
       );
     });
 
@@ -92,7 +97,9 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
       repo.find.mockResolvedValue([]);
       await service.getForPlayer('testnet', 'GPLAYER');
       expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ network: 'testnet' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ network: 'testnet' }),
+        }),
       );
     });
   });
@@ -103,7 +110,9 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
       repo.find.mockResolvedValue([]);
       await service.getForPlayer('testnet', 'GSPECIFIC');
       expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ player: 'GSPECIFIC' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ player: 'GSPECIFIC' }),
+        }),
       );
     });
 
@@ -125,7 +134,9 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
     });
 
     it('1-session boundary: returns state=pending and accrued=0 for Lost', async () => {
-      repo.find.mockResolvedValue([makeSession({ status: 'Lost', attemptsUsed: 6 })]);
+      repo.find.mockResolvedValue([
+        makeSession({ status: 'Lost', attemptsUsed: 6 }),
+      ]);
       const result = await service.getForPlayer('testnet', 'GPLAYER');
       expect(result.state).toBe('pending');
       expect(result.accrued).toBe(0);
@@ -133,7 +144,9 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
     });
 
     it('pendingClaim === accrued - claimed (contract invariant)', async () => {
-      repo.find.mockResolvedValue([makeSession({ attemptsUsed: 2, status: 'Won' })]);
+      repo.find.mockResolvedValue([
+        makeSession({ attemptsUsed: 2, status: 'Won' }),
+      ]);
       const result = await service.getForPlayer('testnet', 'GPLAYER');
       expect(result.pendingClaim).toBe(result.accrued - result.claimed);
     });
@@ -142,7 +155,9 @@ describe('QA-204: projection-backed read API — pagination and filter contracts
       repo.find.mockResolvedValue([]);
       await service.getForPlayer('testnet', 'GPLAYER');
       expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ finalized: true }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ finalized: true }),
+        }),
       );
     });
   });

@@ -1,4 +1,8 @@
-export type AdminRole = 'super_admin' | 'game_admin' | 'content_admin' | 'readonly_admin';
+export type AdminRole =
+  | 'super_admin'
+  | 'game_admin'
+  | 'content_admin'
+  | 'readonly_admin';
 
 export interface AdminRegistryEntry {
   address: string;

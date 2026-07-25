@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RegistrySnapshotService } from './registry-snapshot.service';
 import { RegistrySnapshotEntity } from '../entities/registry-snapshot.entity';
+import { AuditTrailService } from '../audit-trail.service';
 
 const MOCK_REGISTRY = { contractId: 'C123', version: '1.0.0' };
 
@@ -19,17 +20,23 @@ function buildRepo(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const mockAuditService = {
+  log: jest.fn().mockResolvedValue({ id: 1 }),
+};
+
 describe('RegistrySnapshotService', () => {
   let service: RegistrySnapshotService;
   let repo: ReturnType<typeof buildRepo>;
 
   beforeEach(async () => {
     repo = makeRepo();
+    mockAuditService.log.mockClear();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RegistrySnapshotService,
         { provide: getRepositoryToken(RegistrySnapshotEntity), useValue: repo },
+        { provide: AuditTrailService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -51,7 +58,10 @@ describe('RegistrySnapshotService', () => {
     });
 
     it('updates existing snapshot on second save', async () => {
-      const existing: Partial<RegistrySnapshotEntity> = { id: 5, capturedAtLedger: 50 };
+      const existing: Partial<RegistrySnapshotEntity> = {
+        id: 5,
+        capturedAtLedger: 50,
+      };
       repo.findOne.mockResolvedValue(existing);
 
       await service.save({
@@ -64,6 +74,24 @@ describe('RegistrySnapshotService', () => {
       const created = (repo.create as jest.Mock).mock.calls[0][0];
       expect(created.id).toBe(5);
       expect(created.capturedAtLedger).toBe(200);
+    });
+
+    it('logs an audit entry on save', async () => {
+      await service.save({
+        network: 'testnet',
+        contractId: 'C123',
+        registry: MOCK_REGISTRY,
+        capturedAtLedger: 100,
+      });
+
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'registry_change',
+          actor: 'indexer',
+          network: 'testnet',
+          targetResource: 'C123',
+        }),
+      );
     });
   });
 

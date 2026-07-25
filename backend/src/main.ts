@@ -2,6 +2,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { RateLimitHeadersInterceptor } from './common/rate-limit-headers.interceptor';
 import { MetricsService } from './dewordle/metrics/metrics.service';
 import { MetricsInterceptor } from './common/metrics.interceptor';
 
@@ -26,6 +27,8 @@ async function bootstrap() {
         transform: true,
       }),
     );
+
+    app.useGlobalInterceptors(new RateLimitHeadersInterceptor());
 
     app.setGlobalPrefix('api/v1');
 
