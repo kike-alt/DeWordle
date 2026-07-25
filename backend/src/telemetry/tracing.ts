@@ -1,29 +1,40 @@
 /**
  * PERF-105: Distributed tracing with OpenTelemetry.
- * Import this file FIRST in main.ts before any other imports to ensure
- * auto-instrumentation patches are applied at startup.
  *
- * Required packages:
- *   @opentelemetry/sdk-node
- *   @opentelemetry/auto-instrumentations-node
- *   @opentelemetry/exporter-trace-otlp-http
- *   @opentelemetry/resources
- *   @opentelemetry/semantic-conventions
+ * This file bootstraps OpenTelemetry tracing using the packages listed below.
+ * Install them before enabling tracing:
+ *
+ *   npm install --prefix backend \
+ *     @opentelemetry/sdk-node \
+ *     @opentelemetry/auto-instrumentations-node \
+ *     @opentelemetry/exporter-trace-otlp-http \
+ *     @opentelemetry/resources \
+ *     @opentelemetry/semantic-conventions \
+ *     @opentelemetry/sdk-trace-base
+ *
+ * Call initTracing() at the very top of main.ts (before any other imports)
+ * to ensure auto-instrumentation patches load first.
  */
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 
 const isTracingEnabled =
   process.env.OTEL_ENABLED === 'true' || process.env.NODE_ENV === 'production';
 
-let sdk: NodeSDK | null = null;
-
 export function initTracing(): void {
   if (!isTracingEnabled) return;
+
+  // Dynamic require so missing packages don't break compilation
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { NodeSDK } = require('@opentelemetry/sdk-node');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Resource } = require('@opentelemetry/resources');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } = require('@opentelemetry/semantic-conventions');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { BatchSpanProcessor } = require('@opentelemetry/sdk-trace-base');
 
   const exporter = new OTLPTraceExporter({
     url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318/v1/traces',
@@ -32,7 +43,7 @@ export function initTracing(): void {
       : {},
   });
 
-  sdk = new NodeSDK({
+  const sdk = new NodeSDK({
     resource: new Resource({
       [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'dewordle-backend',
       [ATTR_SERVICE_VERSION]: process.env.npm_package_version ?? '0.0.0',
@@ -44,20 +55,17 @@ export function initTracing(): void {
     }),
     instrumentations: [
       getNodeAutoInstrumentations({
-        // Disable noisy fs instrumentation
         '@opentelemetry/instrumentation-fs': { enabled: false },
       }),
     ],
   });
 
   sdk.start();
-
-  process.on('SIGTERM', async () => {
-    await sdk?.shutdown();
-  });
+  process.on('SIGTERM', async () => { await sdk.shutdown(); });
 }
 
 export function getTracer(name: string) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { trace } = require('@opentelemetry/api');
   return trace.getTracer(name, process.env.npm_package_version);
 }
