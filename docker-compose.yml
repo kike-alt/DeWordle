@@ -1,0 +1,93 @@
+version: "3.9"
+
+services:
+  # PostgreSQL database
+  db:
+    image: postgres:16-alpine
+    container_name: dewordle-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-dewordle}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dewordle_secret}
+      POSTGRES_DB: ${DB_NAME:-dewordle}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dewordle-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dewordle}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: dewordle-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - dewordle-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # NestJS backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: dewordle-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-3001}:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-dewordle}:${DB_PASSWORD:-dewordle_secret}@db:5432/${DB_NAME:-dewordle}
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
+    env_file:
+      - ./backend/.env.local
+    networks:
+      - dewordle-net
+
+  # Next.js frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: dewordle-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-3001}
+      NODE_ENV: development
+    networks:
+      - dewordle-net
+
+networks:
+  dewordle-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
