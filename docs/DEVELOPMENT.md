@@ -1,5 +1,36 @@
 # Development Guide
 
+## Local Infrastructure (Docker Compose)
+
+A shared Docker Compose stack covers Postgres, the NestJS backend, and an optional
+Soroban RPC caching proxy. Use it to bring up a consistent local environment without
+installing Postgres directly.
+
+```bash
+# Postgres only (most common — run the backend outside Docker for hot-reload)
+./scripts/infra-up.sh postgres
+
+# Postgres + API container
+./scripts/infra-up.sh backend
+
+# Full stack including the RPC proxy
+./scripts/infra-up.sh full
+
+# Stop everything
+./scripts/infra-up.sh down
+```
+
+After the first start (or after resetting the volume), run migrations:
+
+```bash
+cd backend && npm run typeorm:migration:run
+```
+
+See the `docker-compose.yml` file for the full profile
+reference, environment variable table, and known limitations.
+
+---
+
 ## Phase 3 One-Command Validation
 
 Run the full Phase 3 validation suite before opening a PR:
@@ -76,6 +107,13 @@ same order, before pushing.
 
 The script exits non-zero and prints a summary of every failed step, so you
 can see all failures at once rather than stopping at the first one.
+
+### GitHub Workflows and Badges Mapping
+The local verification subsets correspond directly to the workflows run by GitHub Actions in CI:
+- `./scripts/ci-local.sh frontend` runs the exact checks triggered by `.github/workflows/maintained-frontend.yml` (Frontend Status badge).
+- `./scripts/ci-local.sh backend` runs the exact checks triggered by `.github/workflows/maintained-backend.yml` (Backend Status badge).
+- `./scripts/ci-local.sh soroban` runs the exact checks triggered by `.github/workflows/maintained-soroban.yml` (Soroban Validation Status badge).
+
 
 **Prerequisites:** Node 20+, npm, Rust stable with `wasm32-unknown-unknown`
 target (`rustup target add wasm32-unknown-unknown`).

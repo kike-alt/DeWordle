@@ -11,10 +11,7 @@ This document orchestrates contributor operations and governance while delegatin
 - [Soroban SDK Guide](../SOROBAN_SDK_GUIDE.md)
 - [Frontend Wallet Foundation](../FRONTEND_WALLET_FOUNDATION.md)
 - [Backend Indexer Foundation](../BACKEND_INDEXER_FOUNDATION.md)
-- [Soroban Deployment Flow](../SOROBAN_DEPLOYMENT_FLOW.md)
-- [Security Foundation](../SECURITY_FOUNDATION.md)
 - [Soroban GitHub Strategy](../SOROBAN_GITHUB_STRATEGY.md)
-- [Drips/Wave Prep](../DRIPS_WAVE_PREP.md)
 - [Wave Migration Issue Candidates](../WAVE_MIGRATION_ISSUE_CANDIDATES.md)
 - [ADR 0001](../adr/0001-soroban-foundation-boundaries.md)
 
@@ -44,9 +41,9 @@ This document orchestrates contributor operations and governance while delegatin
 - Operational docs aligned with current branch and milestone state.
 
 ## Maintainer Workflow Expectations
-- Triage issues at least 2x/week following the [Maintainer Triage Routine](../GITHUB_PROJECT_PLAN.md#maintainer-triage-routine).
+- Triage issues at least 2x/week following maintainer triage routines.
 - Validate scope and dependencies before labeling `wave:ready` and moving to the **Ready** lane.
-- Enforce track-based routing as defined in the [Project Board Plan](../GITHUB_PROJECT_PLAN.md#track-based-routing-rules).
+- Enforce track-based routing as defined in the repository project board conventions.
 - Enforce single-track PR scope unless explicitly marked cross-track.
 - Keep milestone burndown visible and updated weekly.
 - Publish weekly Wave status note: completed, blocked, reprioritized.

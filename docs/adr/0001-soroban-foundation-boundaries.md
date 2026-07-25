@@ -18,3 +18,9 @@ The foundation phase must maximize contributor parallelism while minimizing prot
 - Contributors can work in parallel across contracts, SDK, frontend, and indexer.
 - Protocol-critical transitions are centralized in `core_game` early.
 - Rewards/tournaments are safely deferred to later waves.
+
+## Migration Notes
+- See [Stellar Migration Guide](../STELLAR_MIGRATION.md) for the full migration walkthrough from Starknet to Soroban.
+- See [Backend Indexer Foundation](../BACKEND_INDEXER_FOUNDATION.md) for the indexer architecture that implements the projection-based read APIs.
+- See [Soroban Foundation Architecture](../SOROBAN_FOUNDATION_ARCHITECTURE.md) for contract boundary details.
+- See [Local Development Sandbox](../LOCAL_SANDBOX_WALKTHROUGH.md) for setting up the local Soroban dev environment.

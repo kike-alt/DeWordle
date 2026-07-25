@@ -10,8 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { GamesService } from './games.service';
-import { CreateGameDto } from './dto/create-game.dto';
-import { UpdateGameDto } from './dto/update-game.dto';
+import { type CreateGameDto } from './dto/create-game.dto';
+import { type UpdateGameDto } from './dto/update-game.dto';
 import { Roles } from 'src/auth/decorators/roles.decorators';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-guard.guard';

@@ -27,3 +27,31 @@ export function getDefaultNetwork(): StellarNetwork {
   if (env === "mainnet") return "mainnet";
   return "testnet";
 }
+
+/**
+ * Validates the transport protocol of a Soroban RPC URL.
+ * Throws an Error if an insecure endpoint is configured outside of local development.
+ */
+export function validateRpcUrl(rpcUrl: string, env: string = process.env.NODE_ENV || "development"): void {
+  try {
+    const url = new URL(rpcUrl);
+
+    if (env === "production" || env === "test") {
+      if (url.protocol !== "https:") {
+        throw new Error(`Insecure RPC URL '${rpcUrl}' is strictly forbidden in ${env}.`);
+      }
+      return;
+    }
+
+    if (url.protocol === "http:") {
+      if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+        throw new Error(`Insecure RPC URL '${rpcUrl}' is only permitted for localhost during development.`);
+      }
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Insecure RPC URL")) {
+      throw error;
+    }
+    throw new Error(`Malformed RPC URL: '${rpcUrl}'`);
+  }
+}

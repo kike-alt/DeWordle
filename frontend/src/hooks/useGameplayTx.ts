@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStellarWallet } from "@/hooks/useStellarWallet";
 import { nextLifecycle, reconcileGameplayState, type GameplayTxSnapshot } from "@/lib/stellar/gameplay-flow";
 
@@ -16,6 +16,18 @@ export function useGameplayTx() {
   const [snapshot, setSnapshot] = useState<GameplayTxSnapshot>({});
   // In-flight lock: prevents duplicate submissions
   const inFlightRef = useRef(false);
+
+  // Reset all optimistic state whenever the connected wallet account changes.
+  // Leaving stale session snapshots mounted after an account switch would let
+  // the new user see (and potentially interact with) the previous account's
+  // in-flight or confirmed session data.
+  useEffect(() => {
+    return wallet.onAccountSwitch(() => {
+      inFlightRef.current = false;
+      setSnapshot({});
+      wallet.setTxStatus({ id: "", state: "idle" });
+    });
+  }, [wallet]);
 
   const networkMismatch = useMemo(() => {
     const configured = process.env.NEXT_PUBLIC_STELLAR_NETWORK;

@@ -1,0 +1,21 @@
+name: Stale Branch Warning
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-behind:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check if branch is behind main
+        run: |
+          BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
+          if [ "$BEHIND" -gt 5 ]; then
+            echo "WARNING: This branch is $BEHIND commit(s) behind main. Consider rebasing or merging main before review."
+          fi

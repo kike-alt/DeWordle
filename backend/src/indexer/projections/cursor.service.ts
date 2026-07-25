@@ -69,6 +69,20 @@ export class CursorService {
     return true;
   }
 
+  /** Resets the cursor for a given network/stream to genesis state. */
+  async reset(network: string, streamKey: string): Promise<void> {
+    const cursor = await this.getOrCreate(network, streamKey);
+    cursor.lastLedger = 0;
+    cursor.lastTxHash = '';
+    cursor.lastEventIndex = 0;
+    await this.cursorRepo.save(cursor);
+  }
+
+  /** Deletes all session projection records. */
+  async resetProjections(): Promise<void> {
+    await this.cursorRepo.manager.query('DELETE FROM session_projections');
+  }
+
   private isMonotonicallyGreater(
     cursor: IndexerCursorEntity,
     ledger: number,

@@ -1,0 +1,70 @@
+name: Advisory Triage
+
+on:
+  schedule:
+    - cron: 0 6 * * 1
+  workflow_dispatch:
+
+jobs:
+  npm-audit-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run npm audit and write JSON report
+        run: npm audit --json --audit-level=moderate > .npm-audit-report.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-frontend
+          path: frontend/.npm-audit-report.json
+          if-no-files-found: warn
+          # Retain for 30 days per AUDIT_LOG_RETENTION.md §CI Security Scan Reports
+          retention-days: 30
+
+  npm-audit-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run npm audit and write JSON report
+        run: npm audit --json --audit-level=moderate > .npm-audit-report.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-backend
+          path: backend/.npm-audit-report.json
+          if-no-files-found: warn
+          # Retain for 30 days per AUDIT_LOG_RETENTION.md §CI Security Scan Reports
+          retention-days: 30
+
+  cargo-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: soroban
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Run cargo audit and write JSON report
+        run: cargo audit --json > cargo-audit-report.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cargo-audit-report
+          path: soroban/cargo-audit-report.json
+          if-no-files-found: warn
+          # Retain for 30 days per AUDIT_LOG_RETENTION.md §CI Security Scan Reports
+          retention-days: 30

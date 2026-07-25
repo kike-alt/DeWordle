@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, UpdateDateColumn, Unique } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  UpdateDateColumn,
+  Unique,
+} from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { Game } from '../games/entities/game.entity';
 

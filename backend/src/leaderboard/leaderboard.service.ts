@@ -1,9 +1,13 @@
-import { Injectable, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { type Repository } from 'typeorm';
 import { LeaderboardEntry } from './leaderboard-entry.entity';
-import { User } from '../auth/entities/user.entity';
-import { Game } from '../games/entities/game.entity';
+import { type User } from '../auth/entities/user.entity';
+import { type Game } from '../games/entities/game.entity';
 
 @Injectable()
 export class LeaderboardService {
@@ -18,16 +22,24 @@ export class LeaderboardService {
       return;
     }
     try {
-      let entry = await this.leaderboardRepository.findOne({ where: { user, game } });
+      let entry = await this.leaderboardRepository.findOne({
+        where: { user, game },
+      });
       if (!entry) {
-        entry = this.leaderboardRepository.create({ user, game, totalScore: score, wins: win ? 1 : 0, totalSessions: 1 });
+        entry = this.leaderboardRepository.create({
+          user,
+          game,
+          totalScore: score,
+          wins: win ? 1 : 0,
+          totalSessions: 1,
+        });
       } else {
         entry.totalScore += score;
         entry.wins += win ? 1 : 0;
         entry.totalSessions += 1;
       }
       return await this.leaderboardRepository.save(entry);
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException('Could not update leaderboard');
     }
   }
@@ -42,14 +54,17 @@ export class LeaderboardService {
         take: Math.max(1, Math.min(Number(take), 100)), // limit page size
         relations: ['user'],
       });
-    } catch (error) {
-      throw new InternalServerErrorException('Could not fetch game leaderboard');
+    } catch {
+      throw new InternalServerErrorException(
+        'Could not fetch game leaderboard',
+      );
     }
   }
 
   async getGlobalLeaderboard(skip = 0, take = 20) {
     try {
-      const qb = this.leaderboardRepository.createQueryBuilder('entry')
+      const qb = this.leaderboardRepository
+        .createQueryBuilder('entry')
         .innerJoin('entry.user', 'user') // Only include entries with a user
         .select('user.id', 'userId')
         .addSelect('SUM(entry.totalScore)', 'totalScore')
@@ -62,8 +77,10 @@ export class LeaderboardService {
         .offset(Math.max(0, Number(skip)))
         .limit(Math.max(1, Math.min(Number(take), 100)));
       return await qb.getRawMany();
-    } catch (error) {
-      throw new InternalServerErrorException('Could not fetch global leaderboard');
+    } catch {
+      throw new InternalServerErrorException(
+        'Could not fetch global leaderboard',
+      );
     }
   }
 }

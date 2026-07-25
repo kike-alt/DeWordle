@@ -6,9 +6,14 @@ import { EventProcessorService } from './processors/event-processor.service';
 import { EventNormalizerService } from './processors/event-normalizer.service';
 import { CursorService } from './projections/cursor.service';
 import { compareEventsByCursor } from './processors/event-ordering.util';
+import {
+  validateRpcResponseShape,
+  diagnoseMalformedEvent,
+} from './processors/rpc-response.validator';
 import { randomUUID } from 'crypto';
 import { INDEXER_STREAM_CORE_GAME } from './indexer.constants';
 import { ReplayAlertService } from './queue/replay-alert.service';
+import { sanitizeErrorMessage } from '../common/redaction';
 
 export interface IndexerLogContext {
   correlationId: string;
@@ -90,7 +95,7 @@ export class IndexerService {
         correlationId: context?.correlationId,
         topic: event.topic,
         ledger: event.ledger,
-        error: err instanceof Error ? err.message : String(err),
+        error: sanitizeErrorMessage(err),
       });
       throw err;
     }
@@ -188,7 +193,20 @@ export class IndexerService {
       cursor.lastLedger,
     );
 
-    const normalized = rawEvents
+    const structurallyValidEvents = rawEvents.filter((raw, idx) => {
+      const diagnostic = diagnoseMalformedEvent(raw, idx);
+      if (diagnostic) {
+        this.logger.warn({
+          msg: 'indexer.rpc.malformed_event',
+          correlationId: cycleContext.correlationId,
+          ...diagnostic,
+        });
+        return false;
+      }
+      return true;
+    });
+
+    const normalized = structurallyValidEvents
       .map((raw) => this.eventNormalizer.normalize(network, raw))
       .filter((e) => this.eventNormalizer.isValid(e))
       .sort(compareEventsByCursor);
@@ -224,11 +242,11 @@ export class IndexerService {
       },
     };
 
-    const response = await axios.post<{
-      result?: { events?: Record<string, unknown>[] };
-    }>(rpcUrl, body, { timeout: 10_000 });
+    const response = await axios.post<unknown>(rpcUrl, body, {
+      timeout: 10_000,
+    });
 
-    return response.data?.result?.events ?? [];
+    return validateRpcResponseShape(response.data);
   }
 
   async fetchLatestLedger(rpcUrl: string): Promise<number> {
@@ -245,6 +263,29 @@ export class IndexerService {
     );
 
     return response.data?.result?.latestLedger ?? 0;
+  }
+
+  /** Resets the indexer cursor for a given network/stream to genesis. */
+  async resetCursor(network: string, streamKey: string): Promise<void> {
+    await this.cursorService.reset(network, streamKey);
+    this.metrics.lastCursorLedger = 0;
+    this.metrics.ingestedTotal = 0;
+    this.metrics.replaySkips = 0;
+    this.metrics.projectionErrors = 0;
+    this.logger.warn({
+      msg: 'indexer.cursor.reset',
+      network,
+      streamKey,
+    });
+  }
+
+  /** Clears all projection data from the database. */
+  async resetProjections(): Promise<void> {
+    await this.cursorService.resetProjections();
+    this.metrics.projectionErrors = 0;
+    this.logger.warn({
+      msg: 'indexer.projections.reset',
+    });
   }
 
   recordReplaySkip(

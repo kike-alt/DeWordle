@@ -89,4 +89,3 @@ Reviewers must validate:
 ## Operational Mapping
 - Phase mapping: see [WAVE5_PHASES](./WAVE5_PHASES.md)
 - Execution governance: see [WAVE5_EXECUTION_PLAN](./WAVE5_EXECUTION_PLAN.md)
-- Triage and Board Lanes: see [GITHUB_PROJECT_PLAN](../GITHUB_PROJECT_PLAN.md)

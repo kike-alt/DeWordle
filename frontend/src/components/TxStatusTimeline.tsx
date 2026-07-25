@@ -34,17 +34,27 @@ interface TxStatusTimelineProps {
 export function TxStatusTimeline({ status }: TxStatusTimelineProps) {
   const isError = status.state === "error";
   const activeIndex = isError ? -1 : STEPS.indexOf(status.state);
+  const statusLabel = isError
+    ? `Transaction failed: ${status.error ?? "Unknown error"}`
+    : `Transaction status: ${STEP_LABELS[status.state]}`;
 
   return (
-    <div aria-label="Transaction status" className="w-full">
-      {/* Step indicators */}
-      <ol className="flex items-center justify-between gap-1">
+    <div
+      aria-label="Transaction status"
+      aria-live="polite"
+      aria-atomic="true"
+      className="w-full"
+    >
+      {/* Visually hidden live region for screen readers */}
+      <span className="sr-only">{statusLabel}</span>
+
+      <ol className="flex items-center justify-between gap-1" aria-hidden="true">
         {STEPS.map((step, i) => {
           const isDone = !isError && i < activeIndex;
           const isActive = !isError && i === activeIndex;
 
           return (
-            <li key={step} className="flex flex-1 flex-col items-center gap-1">
+            <li key={step} className="relative flex flex-1 flex-col items-center gap-1">
               {/* Connector line */}
               {i > 0 && (
                 <div
@@ -83,7 +93,6 @@ export function TxStatusTimeline({ status }: TxStatusTimelineProps) {
         })}
       </ol>
 
-      {/* Error state */}
       {isError && (
         <p
           role="alert"
@@ -94,7 +103,6 @@ export function TxStatusTimeline({ status }: TxStatusTimelineProps) {
         </p>
       )}
 
-      {/* Success: tx hash */}
       {status.state === "success" && status.txHash && (
         <p className="mt-2 truncate text-center text-xs text-gray-500">
           Tx:{" "}

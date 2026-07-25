@@ -1,2 +1,46 @@
+# Dependencies
 node_modules/
 **/node_modules/
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# AI assistant configuration (contains local paths and permissions)
+.claude/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Test coverage
+coverage/
+
+# Rust / Cargo
+target/
+
+# Editor directories
+.idea/
+*.swp
+*.swo
+
+# Vercel
+.vercel

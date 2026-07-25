@@ -44,6 +44,7 @@ This map defines contributor-safe extension points created in Phase 2.
 
 2. Projection
 - Add additional projections (leaderboard, streak analytics, reward claims) via `ProjectionService`.
+- Follow the standardized pattern in [Backend Read-Model Extension Guide](../contributors/backend-read-model-extension.md)
 
 3. Observability
 - Add metrics and structured logs around cursor lag, replay skips, and projection latency.

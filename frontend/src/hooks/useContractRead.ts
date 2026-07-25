@@ -5,6 +5,7 @@ import type { DayConfig, Session } from "@dewordle/soroban-sdk";
 import { CoreGameClient, NETWORKS, loadContractRegistry } from "@dewordle/soroban-sdk";
 import { diagnoseRegistryMismatch, formatRegistryMismatchDiagnostics } from "@dewordle/soroban-sdk";
 import type { StellarNetwork } from "@/lib/stellar/network";
+import { measureProjectionFetch } from "@/lib/performance/projection-timing";
 
 interface ReadState<T> {
   data: T | null;
@@ -33,7 +34,7 @@ function useClient(network: StellarNetwork) {
   useEffect(() => {
     let cancelled = false;
     loadContractRegistry(network)
-      .then((registry) => {
+      .then((registry: Parameters<typeof CoreGameClient.fromRegistry>[1]) => {
         if (!cancelled) {
           clientRef.current = CoreGameClient.fromRegistry(NETWORKS[network], registry);
           setReady(true);
@@ -75,9 +76,8 @@ export function useDayConfig(dayId: number | null, network: StellarNetwork = "te
     let cancelled = false;
     set(null);
 
-    client
-      .getDayConfig(dayId)
-      .then((data) => {
+    measureProjectionFetch<DayConfig | null>(`dayConfig:${dayId}`, () => client.getDayConfig(dayId))
+      .then((data: DayConfig | null) => {
         if (!cancelled) set(data);
       })
       .catch((err: unknown) => {
@@ -106,9 +106,8 @@ export function useSession(sessionId: string | null, network: StellarNetwork = "
     let cancelled = false;
     set(null);
 
-    client
-      .getSession(sessionId)
-      .then((data) => {
+    measureProjectionFetch<Session | null>(`session:${sessionId}`, () => client.getSession(sessionId))
+      .then((data: Session | null) => {
         if (!cancelled) set(data);
       })
       .catch((err: unknown) => {

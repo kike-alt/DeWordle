@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Word } from 'src/entities/word.entity';
+import { Word } from '../../../entities/word.entity';
 import axios from 'axios';
 import CircuitBreaker from 'opossum';
 import { Counter } from 'prom-client';
@@ -57,12 +57,19 @@ export class EnrichedWordsProvider {
     return word;
   }
 
-  private async enrichWord(text: string): Promise<any> {
+  private async enrichWord(
+    text: string,
+  ): Promise<Record<string, unknown> | null> {
     try {
-      const response = await axios.get(`https://external-dict-api/${text}`);
+      const response = await axios.get<Record<string, unknown>>(
+        `https://external-dict-api/${text}`,
+      );
       return response.data;
     } catch (err) {
-      this.logger.error(`API enrichment failed for ${text}`, err.stack);
+      this.logger.error(
+        `API enrichment failed for ${text}`,
+        err instanceof Error ? err.stack : String(err),
+      );
       return null;
     }
   }

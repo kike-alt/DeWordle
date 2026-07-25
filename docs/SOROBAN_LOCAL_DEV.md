@@ -28,7 +28,7 @@ Update contract IDs in:
 
 ## Testnet Environment Variables
 
-When running scripts against testnet, set the following variables. See [SOROBAN_DEPLOYMENT_FLOW](./SOROBAN_DEPLOYMENT_FLOW.md) for the full contract table.
+When running scripts against testnet, set the following variables.
 
 | Variable | Required | Notes |
 |---|---|---|
