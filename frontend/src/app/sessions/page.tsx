@@ -30,7 +30,7 @@ function SessionRow({ session }: { session: SessionEntry }) {
         : "text-gray-400";
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-primary-800/40 bg-primary-950/30 px-4 py-3">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg border border-primary-800/40 bg-primary-950/30 p-3 sm:px-4 sm:py-3 gap-2 sm:gap-0">
       <div className="flex flex-col gap-1">
         <span className="text-sm font-medium text-primary-100">
           Day #{session.dayId}
@@ -39,7 +39,7 @@ function SessionRow({ session }: { session: SessionEntry }) {
           {session.sessionId.slice(0, 12)}...
         </span>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         <span className={`text-xs font-semibold ${statusColor}`}>
           {session.status}
         </span>
@@ -145,11 +145,11 @@ export default function SessionsPage() {
             ))}
           </div>
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
             <button
               onClick={() => setSkip((s) => Math.max(0, s - take))}
               disabled={skip === 0}
-              className="rounded-lg border border-primary-700/50 px-4 py-2 text-sm text-primary-200 hover:bg-primary-900/50 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-lg border border-primary-700/50 px-4 py-2 text-sm text-primary-200 hover:bg-primary-900/50 disabled:opacity-30 disabled:cursor-not-allowed touch-target w-full sm:w-auto"
             >
               Previous
             </button>
@@ -159,7 +159,7 @@ export default function SessionsPage() {
             <button
               onClick={() => setSkip((s) => s + take)}
               disabled={skip + take >= data.total}
-              className="rounded-lg border border-primary-700/50 px-4 py-2 text-sm text-primary-200 hover:bg-primary-900/50 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-lg border border-primary-700/50 px-4 py-2 text-sm text-primary-200 hover:bg-primary-900/50 disabled:opacity-30 disabled:cursor-not-allowed touch-target w-full sm:w-auto"
             >
               Next
             </button>

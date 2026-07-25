@@ -126,7 +126,7 @@ export function SessionResultCard({ result, onShare }: SessionResultCardProps) {
   return (
     <article
       aria-label={`${KIND_LABEL[kind]} session result`}
-      className="flex flex-col gap-5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a0b3d] to-[#2d1b69] p-6 shadow-xl text-white max-w-sm w-full"
+      className="flex flex-col gap-4 sm:gap-5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a0b3d] to-[#2d1b69] p-4 sm:p-6 shadow-xl text-white w-full max-w-sm"
     >
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-0.5">
@@ -201,7 +201,7 @@ export function SessionResultCard({ result, onShare }: SessionResultCardProps) {
           <button
             type="button"
             onClick={() => setShowShareCard(!showShareCard)}
-            className="flex-1 rounded-xl py-3 text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="flex-1 rounded-xl py-3 text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 touch-target"
             aria-label="Toggle share card preview"
           >
             {showShareCard ? "Hide Card" : "Show Card"}
@@ -210,7 +210,7 @@ export function SessionResultCard({ result, onShare }: SessionResultCardProps) {
         <button
           type="button"
           onClick={handleShare}
-          className="flex-1 rounded-xl py-3 text-sm font-semibold bg-purple-600 hover:bg-purple-500 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+          className="flex-1 rounded-xl py-3 text-sm font-semibold bg-purple-600 hover:bg-purple-500 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 touch-target"
           aria-label="Share your result"
         >
           Share Result
