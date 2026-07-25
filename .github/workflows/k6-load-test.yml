@@ -1,0 +1,44 @@
+name: Load Testing (k6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: "Virtual users"
+        default: "50"
+        required: false
+      duration:
+        description: "Test duration (e.g. 2m)"
+        default: "2m"
+        required: false
+  schedule:
+    # Run weekly on Sundays at 02:00 UTC
+    - cron: "0 2 * * 0"
+
+jobs:
+  load-test:
+    name: k6 load test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 load test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: scripts/load-tests/game-api.js
+        env:
+          K6_VUS: ${{ github.event.inputs.vus || '50' }}
+          K6_DURATION: ${{ github.event.inputs.duration || '2m' }}
+          K6_BASE_URL: ${{ secrets.LOAD_TEST_BASE_URL || 'http://localhost:3001' }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: results/
+          retention-days: 14
