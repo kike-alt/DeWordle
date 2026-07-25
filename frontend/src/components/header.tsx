@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import Image from 'next/image';
-import { Bell } from 'lucide-react';
+import { Bell, HelpCircle } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/popover';
 import { useAuth } from '../../context/AuthContext';
 import { LoginForm } from './LoginModal';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { MobileMenu } from './MobileMenu';
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
 export default function Header() {
   const pathname = usePathname();
   const { isAuthenticated, user } = useAuth();
+  const { restart: restartOnboarding } = useOnboarding();
   const isActive = (href: string) => pathname === href;
   const avatar = useMemo(() => {
     return createAvatar(adventurer, {
@@ -90,6 +92,14 @@ export default function Header() {
         )}
         {isAuthenticated && (
           <div className="hidden md:flex gap-4 items-center">
+            <button
+              type="button"
+              aria-label="Start onboarding tutorial"
+              onClick={restartOnboarding}
+              className="cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/60 rounded-full p-1 text-gray-400 hover:text-white transition-colors"
+            >
+              <HelpCircle aria-hidden="true" />
+            </button>
             <div className="border p-1 rounded-full">
               <Image
                 src={avatar}

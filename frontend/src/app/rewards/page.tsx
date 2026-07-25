@@ -1,8 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { ComingSoon } from "@/components/ComingSoon";
-import { RewardsClaimPanel } from "@/components/RewardsClaimPanel";
+import { RewardsSkeleton } from "@/components/skeletons";
+
+const RewardsClaimPanel = dynamic(
+  () => import("@/components/RewardsClaimPanel").then((m) => m.RewardsClaimPanel),
+  {
+    loading: () => <RewardsSkeleton />,
+    ssr: false,
+  }
+);
 
 export default function RewardsPage() {
   if (!FEATURE_FLAGS.rewards) return <ComingSoon feature="Rewards" />;

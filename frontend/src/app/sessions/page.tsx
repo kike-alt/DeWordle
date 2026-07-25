@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useStellarWallet } from "@/hooks/useStellarWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+
 interface SessionEntry {
   sessionId: string;
   player: string;
