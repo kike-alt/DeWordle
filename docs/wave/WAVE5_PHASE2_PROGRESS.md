@@ -35,10 +35,16 @@ Technical boundaries remain aligned with:
 - Added event normalization service and deterministic event ordering utility.
 - Expanded cursor schema with event index checkpointing.
 - Expanded indexer service flow to checkpoint after replay-safe ingestion.
+- Added bounded queue rejection guards and replay alert snapshots for burst visibility.
 
 5. Testing Foundations
 - Added contract-level smoke test scaffolding in `core_game`.
 - Added backend indexer unit tests for normalization and cursor ordering invariants.
+- Added queue rejection and replay alert coverage for indexer hardening.
+
+6. DevOps and Security Policy
+- Added workflow secret-scope policy checks for CI workflow maintenance.
+- Documented the pre-testnet hardening checklist in `docs/SECURITY_FOUNDATION.md`.
 
 ## Out of Scope (Intentionally Deferred)
 

@@ -1,4 +1,5 @@
-import type { AssembledTransaction, SimulateTransactionResponse } from "@stellar/stellar-sdk/rpc";
+import type { Transaction } from "@stellar/stellar-sdk";
+import type { Api } from "@stellar/stellar-sdk/rpc";
 
 export type SessionStatus = "InProgress" | "Won" | "Lost" | "Finalized";
 
@@ -37,6 +38,6 @@ export interface SubmitGuessInput {
 }
 
 export interface TxBuildResult {
-  simulated: SimulateTransactionResponse;
-  assembled: AssembledTransaction;
+  simulated: Api.SimulateTransactionResponse;
+  assembled: Transaction;
 }

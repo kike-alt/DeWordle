@@ -1,0 +1,11 @@
+{
+  "network": "local",
+  "rpcUrl": "http://localhost:8000/soroban/rpc",
+  "passphrase": "Standalone Network ; February 2017",
+  "contracts": {
+    "admin_registry": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+    "core_game": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+    "rewards": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+    "achievements": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"
+  }
+}

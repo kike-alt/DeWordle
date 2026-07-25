@@ -1,3 +1,7 @@
 {
-  "cSpell.words": ["Dewordle", "landingpage"]
+  "cSpell.words": [
+    "Dewordle",
+    "landingpage"
+  ],
+  "kiroAgent.configureMCP": "Disabled"
 }

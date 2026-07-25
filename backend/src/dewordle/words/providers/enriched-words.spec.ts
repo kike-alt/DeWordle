@@ -63,7 +63,9 @@ describe('EnrichedWordsProvider', () => {
 
     const result = await provider.getWord('test');
 
-    expect(mockedAxios.get).toHaveBeenCalledWith('https://external-dict-api/test');
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      'https://external-dict-api/test',
+    );
     expect(wordRepo.create).toHaveBeenCalledWith({ word: 'test' });
     expect(wordRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,6 +97,6 @@ describe('EnrichedWordsProvider', () => {
         isEnriched: false,
       }),
     );
-    expect(incMock).toHaveBeenCalled(); 
+    expect(incMock).toHaveBeenCalled();
   });
 });

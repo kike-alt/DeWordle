@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./network";
 export * from "./registry";
+export * from "./registry-diagnostics";
 export * from "./events";
 export * from "./tx-builder";
 export * from "./core-game-client";

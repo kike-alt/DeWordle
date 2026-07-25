@@ -32,7 +32,10 @@ describe('LeaderboardService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LeaderboardService,
-        { provide: getRepositoryToken(LeaderboardEntry), useFactory: mockLeaderboardRepo },
+        {
+          provide: getRepositoryToken(LeaderboardEntry),
+          useFactory: mockLeaderboardRepo,
+        },
       ],
     }).compile();
     service = module.get<LeaderboardService>(LeaderboardService);
@@ -44,13 +47,24 @@ describe('LeaderboardService', () => {
   });
 
   it('should skip upsert for guest', async () => {
-    const result = await service.upsertEntry(null as any, {} as Game, 10, false);
+    const result = await service.upsertEntry(
+      null as any,
+      {} as Game,
+      10,
+      false,
+    );
     expect(result).toBeUndefined();
   });
 
   it('should create new leaderboard entry', async () => {
     repo.findOne.mockResolvedValue(null);
-    repo.create.mockReturnValue({ user: {}, game: {}, totalScore: 10, wins: 1, totalSessions: 1 } as any);
+    repo.create.mockReturnValue({
+      user: {},
+      game: {},
+      totalScore: 10,
+      wins: 1,
+      totalSessions: 1,
+    } as any);
     repo.save.mockResolvedValue({ id: 1 } as any);
     const user = {} as User;
     const game = {} as Game;
@@ -61,7 +75,11 @@ describe('LeaderboardService', () => {
   });
 
   it('should update existing leaderboard entry', async () => {
-    repo.findOne.mockResolvedValue({ totalScore: 5, wins: 0, totalSessions: 1 } as any);
+    repo.findOne.mockResolvedValue({
+      totalScore: 5,
+      wins: 0,
+      totalSessions: 1,
+    } as any);
     repo.save.mockResolvedValue({ id: 2 } as any);
     const user = {} as User;
     const game = {} as Game;
@@ -80,7 +98,9 @@ describe('LeaderboardService', () => {
 
   it('should get global leaderboard', async () => {
     const qb = repo.createQueryBuilder();
-    (qb.getRawMany as jest.Mock).mockResolvedValue([{ userId: 1, totalScore: 100 }]);
+    (qb.getRawMany as jest.Mock).mockResolvedValue([
+      { userId: 1, totalScore: 100 },
+    ]);
     const result = await service.getGlobalLeaderboard(0, 10);
     expect(result).toEqual([{ userId: 1, totalScore: 100 }]);
   });

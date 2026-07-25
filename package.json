@@ -8,16 +8,29 @@
     "backend"
   ],
   "scripts": {
-    "install:all": "npm ci --include=dev --prefix backend && npm ci --include=dev --prefix frontend",
+    "install:all": "npm ci --include=dev --workspaces=false --prefix backend && npm ci --include=dev --workspaces=false --prefix frontend",
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "typecheck": "npm run typecheck --prefix backend && npm run typecheck --prefix frontend",
     "test": "npm run test --prefix backend",
     "test:e2e": "npm run test:e2e --prefix backend",
     "build": "npm run build --prefix backend && npm run build --prefix frontend",
     "format": "npm run format --prefix backend",
-    "verify:frontend": "npm ci --include=dev --prefix frontend && npm run lint --prefix frontend && npm run typecheck --prefix frontend && npm run build --prefix frontend",
-    "verify:backend": "npm ci --include=dev --prefix backend && npm run lint --prefix backend && npm run typecheck --prefix backend && npm run build --prefix backend",
+    "verify:frontend": "npm ci --include=dev --workspaces=false --prefix frontend && npm run lint --prefix frontend && npm run typecheck --prefix frontend && npm run build --prefix frontend && npm test --prefix frontend",
+    "verify:backend": "npm ci --include=dev --workspaces=false --prefix backend && npm run build --prefix backend && npm run typecheck --prefix backend && npm run lint:ci --prefix backend && npm run test:ci --prefix backend",
     "soroban:check": "cargo check --manifest-path soroban/Cargo.toml --workspace",
-    "soroban:fmt": "cargo fmt --manifest-path soroban/Cargo.toml --all"
+    "soroban:fmt": "cargo fmt --manifest-path soroban/Cargo.toml --all",
+    "bootstrap": "node scripts/contributor-bootstrap.js",
+    "bootstrap:json": "node scripts/contributor-bootstrap.js --json",
+    "bootstrap:frontend": "node scripts/contributor-bootstrap.js frontend-only",
+    "bootstrap:indexer": "node scripts/contributor-bootstrap.js indexer-only",
+    "bootstrap:soroban": "node scripts/contributor-bootstrap.js soroban-only",
+    "bootstrap:fullstack": "node scripts/contributor-bootstrap.js full-stack",
+    "fixture:sandbox": "node scripts/fixture-sandbox.js",
+    "pr:checklist": "node scripts/pr-checklist-commenter.js",
+    "backup:projection": "./scripts/backup-projection-data.sh",
+    "restore:projection": "./scripts/restore-projection-data.sh",
+    "registry:validate": "node scripts/validate-registry-bundle.js",
+    "rpc:proxy": "node scripts/rpc-proxy.js",
+    "docs:linkcheck": "node scripts/scan-markdown-links.js"
   }
 }

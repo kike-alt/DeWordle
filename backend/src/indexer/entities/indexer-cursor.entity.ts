@@ -1,7 +1,15 @@
-import { Column, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('indexer_cursors')
 @Index(['network', 'streamKey'], { unique: true })
+@Index(['lastLedger'])
+@Index(['updatedAt'])
 export class IndexerCursorEntity {
   @PrimaryGeneratedColumn()
   id: number;

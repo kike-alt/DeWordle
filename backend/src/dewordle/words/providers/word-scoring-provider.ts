@@ -4,8 +4,8 @@ import { WordDifficulty } from '../../enums/wordDifficulty.enum';
 @Injectable()
 export class WordScoringProvider {
   private highFrequencyWords = new Set(['the', 'be', 'to', 'of', 'and']); // top 3000
-  private midFrequencyWords = new Set(['gather', 'symbol', 'typical']);  // 40-10%
-  private rareWords = new Set(['xylophone', 'quizzical', 'zephyr']);     // bottom 10%
+  private midFrequencyWords = new Set(['gather', 'symbol', 'typical']); // 40-10%
+  private rareWords = new Set(['xylophone', 'quizzical', 'zephyr']); // bottom 10%
 
   scoreWord(word: string): WordDifficulty {
     const obscurityScore = this.calculateObscurity(word);

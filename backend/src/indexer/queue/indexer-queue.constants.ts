@@ -1,0 +1,1 @@
+export const INDEXER_QUEUE_MAX_BUFFER_SIZE = 500;

@@ -23,7 +23,7 @@ import { CreateWordDto } from './dto/create-word.dto';
 import { WordResponseDto } from './dto/word-response.dto';
 import { WordValidationProvider } from './providers/word-validation-provider';
 import { EnrichedWordsProvider } from './providers/enriched-words';
-import { Word } from 'src/entities/word.entity';
+import { Word } from '../../entities/word.entity';
 
 @Controller('words')
 export class WordsController {

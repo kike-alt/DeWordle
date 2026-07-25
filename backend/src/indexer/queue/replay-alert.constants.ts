@@ -1,0 +1,1 @@
+export const REPLAY_REJECTION_ALERT_THRESHOLD = 5;

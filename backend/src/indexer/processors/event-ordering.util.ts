@@ -1,6 +1,9 @@
 import { IngestedEventDto } from '../dto/ingested-event.dto';
 
-export function compareEventsByCursor(a: IngestedEventDto, b: IngestedEventDto): number {
+export function compareEventsByCursor(
+  a: IngestedEventDto,
+  b: IngestedEventDto,
+): number {
   if (a.ledger !== b.ledger) {
     return a.ledger - b.ledger;
   }

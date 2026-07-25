@@ -1,9 +1,11 @@
-import { STELLAR_NETWORKS, type StellarNetwork } from "./network";
+import { STELLAR_NETWORKS, type StellarNetwork, validateRpcUrl } from "./network";
 
 export function createSorobanServerConfig(network: StellarNetwork) {
+  const config = STELLAR_NETWORKS[network];
+  validateRpcUrl(config.rpcUrl);
   return {
-    rpcUrl: STELLAR_NETWORKS[network].rpcUrl,
-    passphrase: STELLAR_NETWORKS[network].passphrase,
+    rpcUrl: config.rpcUrl,
+    passphrase: config.passphrase,
   };
 }
 

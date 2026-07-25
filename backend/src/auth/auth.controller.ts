@@ -7,7 +7,9 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Headers,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -24,6 +26,7 @@ import { SignupDto } from './dto/sign-up.dto';
 import { JwtAuthGuard } from './guards/jwt-guard.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -80,7 +83,7 @@ export class AuthController {
     examples: {
       example1: {
         summary: 'Valid reset',
-        value: { token: 'reset-token', newPassword: 'newStrongPassword123' },
+        value: { token: 'reset-token', password: 'newStrongPassword123' },
       },
     },
   })
@@ -96,7 +99,7 @@ export class AuthController {
         statusCode: 400,
         message: [
           'token must be a string',
-          'newPassword must be longer than or equal to 8 characters',
+          'password must be longer than or equal to 8 characters',
         ],
         error: 'Bad Request',
       },
@@ -113,7 +116,7 @@ export class AuthController {
     },
   })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    await this.authService.resetPassword(dto.token, dto.newPassword);
+    await this.authService.resetPassword(dto.token, dto.password);
     return { message: 'Password has been reset successfully.' };
   }
 
@@ -172,8 +175,12 @@ export class AuthController {
       },
     },
   })
-  async signup(@Body() signupDto: SignupDto) {
-    return this.authService.signup(signupDto);
+  async signup(
+    @Body() signupDto: SignupDto,
+    @Headers('user-agent') userAgent?: string,
+    @Headers('x-forwarded-for') ipAddress?: string,
+  ) {
+    return this.authService.signup(signupDto, userAgent, ipAddress);
   }
 
   @Post('login')
@@ -229,8 +236,12 @@ export class AuthController {
       },
     },
   })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Headers('user-agent') userAgent?: string,
+    @Headers('x-forwarded-for') ipAddress?: string,
+  ) {
+    return this.authService.login(loginDto, userAgent, ipAddress);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -262,7 +273,89 @@ export class AuthController {
       },
     },
   })
-  async getProfile(@Request() req) {
+  async getProfile(@Request() req: ExpressRequest & { user: { id: number } }) {
     return this.authService.getProfile(req.user.id);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description:
+      'Exchange a valid refresh token for a new access token and refresh token.',
+  })
+  @ApiBody({
+    type: RefreshTokenDto,
+    description: 'Refresh token request',
+    examples: {
+      example1: {
+        summary: 'Valid refresh token',
+        value: { refreshToken: 'a1b2c3d4e5f6...' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Tokens refreshed successfully',
+    schema: {
+      example: {
+        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refresh_token: 'a1b2c3d4e5f6...',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid or expired refresh token',
+  })
+  async refreshTokens(
+    @Body() dto: RefreshTokenDto,
+    @Headers('user-agent') userAgent?: string,
+    @Headers('x-forwarded-for') ipAddress?: string,
+  ) {
+    return this.authService.refreshTokens(
+      dto.refreshToken,
+      userAgent,
+      ipAddress,
+    );
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Logout and invalidate refresh token',
+    description: 'Revokes the provided refresh token to end the session.',
+  })
+  @ApiBody({
+    type: RefreshTokenDto,
+    description: 'Refresh token to revoke',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Logged out successfully',
+    schema: { example: { message: 'Logged out successfully' } },
+  })
+  async logout(@Body() dto: RefreshTokenDto) {
+    await this.authService.logout(dto.refreshToken);
+    return { message: 'Logged out successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List active sessions',
+    description: 'Returns all active sessions for the authenticated wallet.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Active sessions retrieved',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized - Invalid or missing JWT token',
+  })
+  async getSessions(
+    @Request() req: ExpressRequest & { user: { id: number; email: string } },
+  ) {
+    return this.authService.getSessions(req.user.email);
   }
 }

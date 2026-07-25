@@ -1,4 +1,4 @@
-import { Keypair, nativeToScVal } from "@stellar/stellar-sdk";
+import { Keypair, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { Server } from "@stellar/stellar-sdk/rpc";
 import type {
   DayConfig,
@@ -77,17 +77,96 @@ export class CoreGameClient {
     return simulateAndAssemble({ server: this.server, tx });
   }
 
-  // Placeholder read methods for future generated bindings
-  async getDayConfig(_dayId: number): Promise<DayConfig | null> {
-    return null;
+  /**
+   * Read day config from the contract.
+   * Returns null if the day is not found or the response cannot be parsed.
+   */
+  async getDayConfig(dayId: number): Promise<DayConfig | null> {
+    try {
+      const account = await this.server.getAccount(this.options.contractId);
+      const tx = await buildContractTx({
+        server: this.server,
+        source: account,
+        network: this.options.network,
+        contractId: this.options.contractId,
+        method: "get_day_config",
+        args: [nativeToScVal(dayId, { type: "u32" })],
+      });
+      const { simulated } = await simulateAndAssemble({ server: this.server, tx });
+      const result = (simulated as { result?: { retval: xdr.ScVal } }).result?.retval;
+      if (!result) return null;
+      return this._parseDayConfig(scValToNative(result));
+    } catch {
+      return null;
+    }
   }
 
-  async getSession(_sessionId: string): Promise<Session | null> {
-    return null;
+  /**
+   * Read session from the contract by session ID (hex string).
+   * Returns null if not found or unparseable.
+   */
+  async getSession(sessionId: string): Promise<Session | null> {
+    try {
+      const account = await this.server.getAccount(this.options.contractId);
+      const tx = await buildContractTx({
+        server: this.server,
+        source: account,
+        network: this.options.network,
+        contractId: this.options.contractId,
+        method: "get_session",
+        args: [nativeToScVal(Buffer.from(sessionId, "hex"), { type: "bytes" })],
+      });
+      const { simulated } = await simulateAndAssemble({ server: this.server, tx });
+      const result = (simulated as { result?: { retval: xdr.ScVal } }).result?.retval;
+      if (!result) return null;
+      return this._parseSession(scValToNative(result));
+    } catch {
+      return null;
+    }
   }
 
-  async parseGuessResult(_raw: unknown): Promise<GuessResult | null> {
-    return null;
+  /**
+   * Parse a raw contract response into a typed GuessResult.
+   * Returns null for malformed payloads.
+   */
+  async parseGuessResult(raw: unknown): Promise<GuessResult | null> {
+    if (!raw || typeof raw !== "object") return null;
+    const obj = raw as Record<string, unknown>;
+    const attemptNo = Number(obj["attempt_no"] ?? obj["attemptNo"]);
+    const outcomeCode = Number(obj["outcome_code"] ?? obj["outcomeCode"]);
+    const isCorrect = Boolean(obj["is_correct"] ?? obj["isCorrect"]);
+    if (isNaN(attemptNo) || isNaN(outcomeCode)) return null;
+    return { attemptNo, outcomeCode, isCorrect };
+  }
+
+  // --- Private parse helpers ---
+
+  private _parseDayConfig(raw: unknown): DayConfig | null {
+    if (!raw || typeof raw !== "object") return null;
+    const obj = raw as Record<string, unknown>;
+    return {
+      dayId: Number(obj["day_id"] ?? obj["dayId"]),
+      puzzleCommitment: String(obj["puzzle_commitment"] ?? obj["puzzleCommitment"] ?? ""),
+      maxAttempts: Number(obj["max_attempts"] ?? obj["maxAttempts"]),
+      closesAt: Number(obj["closes_at"] ?? obj["closesAt"]),
+      published: Boolean(obj["published"]),
+    };
+  }
+
+  private _parseSession(raw: unknown): Session | null {
+    if (!raw || typeof raw !== "object") return null;
+    const obj = raw as Record<string, unknown>;
+    return {
+      id: String(obj["id"] ?? ""),
+      player: String(obj["player"] ?? ""),
+      dayId: Number(obj["day_id"] ?? obj["dayId"]),
+      attemptsUsed: Number(obj["attempts_used"] ?? obj["attemptsUsed"]),
+      maxAttempts: Number(obj["max_attempts"] ?? obj["maxAttempts"]),
+      status: (obj["status"] as Session["status"]) ?? "InProgress",
+      finalized: Boolean(obj["finalized"]),
+      startedAt: Number(obj["started_at"] ?? obj["startedAt"]),
+      updatedAt: Number(obj["updated_at"] ?? obj["updatedAt"]),
+    };
   }
 }
 

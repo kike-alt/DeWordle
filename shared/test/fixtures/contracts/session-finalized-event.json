@@ -1,0 +1,15 @@
+{
+  "network": "testnet",
+  "contractId": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+  "topic": "session_finalized",
+  "txHash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1",
+  "ledger": 123456,
+  "eventIndex": 0,
+  "payload": {
+    "sessionId": "session-abc-123",
+    "player": "GD5Y6Z7Q8W9X0A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0U1V2W3",
+    "dayId": "42",
+    "status": "Finalized",
+    "attemptsUsed": "4"
+  }
+}

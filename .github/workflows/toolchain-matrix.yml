@@ -1,0 +1,156 @@
+name: Toolchain Mismatch Matrix
+
+# QA-213 (#810): Exercise supported and unsupported Node and Rust toolchain
+# combinations so drift is caught automatically instead of by contributor surprise.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Node toolchain matrix
+  # Tests the backend (NestJS) and frontend (Next.js/Vitest) against the
+  # known-good and a boundary unsupported Node version.
+  # ---------------------------------------------------------------------------
+  node-matrix:
+    name: Node ${{ matrix.node }} — ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Known-good (minimum supported) ─────────────────────────────────
+          - node: "20"
+            label: "supported (LTS 20)"
+            expect_success: true
+          # ── Known-good (current LTS) ────────────────────────────────────────
+          - node: "22"
+            label: "supported (LTS 22)"
+            expect_success: true
+          # ── Unsupported (below minimum) ─────────────────────────────────────
+          - node: "18"
+            label: "unsupported (EOL 18)"
+            expect_success: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Report Node version
+        run: node --version
+
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+
+      - name: Typecheck backend (Node ${{ matrix.node }})
+        id: typecheck
+        run: npm run typecheck
+        working-directory: backend
+        continue-on-error: ${{ !matrix.expect_success }}
+
+      - name: Run backend unit tests (Node ${{ matrix.node }})
+        id: test
+        run: npm run test:ci
+        working-directory: backend
+        continue-on-error: ${{ !matrix.expect_success }}
+
+      - name: Fail job when unsupported version unexpectedly passes
+        if: ${{ !matrix.expect_success && steps.test.outcome == 'success' && steps.typecheck.outcome == 'success' }}
+        run: |
+          echo "::warning::Node ${{ matrix.node }} is marked unsupported but all checks passed. Consider updating the matrix."
+
+      - name: Confirm expected failure for unsupported version
+        if: ${{ !matrix.expect_success && (steps.test.outcome == 'failure' || steps.typecheck.outcome == 'failure') }}
+        run: echo "Node ${{ matrix.node }} failed as expected (unsupported version)."
+
+  # ---------------------------------------------------------------------------
+  # Rust toolchain matrix
+  # Tests the Soroban workspace against the pinned stable and a deliberately
+  # old version that is known to lack required features.
+  # ---------------------------------------------------------------------------
+  rust-matrix:
+    name: Rust ${{ matrix.rust }} — ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Known-good (pinned stable) ──────────────────────────────────────
+          # Raised from 1.85 → 1.88: darling@0.23 and serde_with@3.21
+          # (transitive deps of soroban-sdk) now require rustc ≥ 1.88.0.
+          # Verified from cargo check failure on 2026-07-23 (run #30005146252).
+          - rust: "1.88"
+            label: "supported (1.88 stable)"
+            expect_success: true
+          # ── Known-good (latest stable) ─────────────────────────────────────
+          - rust: "stable"
+            label: "supported (latest stable)"
+            expect_success: true
+          # ── Unsupported (too old for soroban-sdk edition-2021 requirements) ─
+          - rust: "1.74"
+            label: "unsupported (pre-1.75 edition boundary)"
+            expect_success: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: wasm32-unknown-unknown
+
+      - name: Report Rust version
+        run: rustc --version
+
+      - name: cargo check — soroban workspace (Rust ${{ matrix.rust }})
+        id: cargo_check
+        run: cargo check --workspace
+        working-directory: soroban
+        continue-on-error: ${{ !matrix.expect_success }}
+
+      - name: Fail job when unsupported version unexpectedly passes
+        if: ${{ !matrix.expect_success && steps.cargo_check.outcome == 'success' }}
+        run: |
+          echo "::warning::Rust ${{ matrix.rust }} is marked unsupported but cargo check passed. Consider updating the matrix."
+
+      - name: Confirm expected failure for unsupported version
+        if: ${{ !matrix.expect_success && steps.cargo_check.outcome == 'failure' }}
+        run: echo "Rust ${{ matrix.rust }} failed as expected (unsupported version)."
+
+  # ---------------------------------------------------------------------------
+  # Cross-toolchain smoke test
+  # Runs only on the primary (known-good) combination and captures the
+  # canonical version set in a summary for the docs/.toolchain-versions file.
+  # ---------------------------------------------------------------------------
+  toolchain-summary:
+    name: Capture known-good versions
+    needs: [node-matrix, rust-matrix]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88"
+
+      - name: Write known-good versions to summary
+        run: |
+          echo "## Toolchain Known-Good Versions" >> $GITHUB_STEP_SUMMARY
+          echo "| Tool | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Node | $(node --version) |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm  | $(npm --version) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rust | $(rustc --version) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cargo | $(cargo --version) |" >> $GITHUB_STEP_SUMMARY

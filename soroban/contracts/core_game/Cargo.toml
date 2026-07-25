@@ -12,3 +12,6 @@ soroban-sdk = { workspace = true }
 dewordle-types = { path = "../../crates/dewordle-types" }
 dewordle-auth = { path = "../../crates/dewordle-auth" }
 dewordle-utils = { path = "../../crates/dewordle-utils" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

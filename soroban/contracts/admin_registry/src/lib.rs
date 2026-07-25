@@ -89,3 +89,85 @@ impl AdminRegistryContract {
         admin.require_auth();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+
+    fn setup() -> (Env, Address, Address) {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let contract_id = env.register(AdminRegistryContract, ());
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        client.init(&admin);
+        (env, admin, contract_id)
+    }
+
+    #[test]
+    fn init_sets_admin() {
+        let (env, admin, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        assert_eq!(client.get_admin(), admin);
+    }
+
+    #[test]
+    #[should_panic]
+    fn double_init_panics() {
+        let (env, admin, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        client.init(&admin);
+    }
+
+    #[test]
+    fn set_and_get_contract() {
+        let (env, _, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        let contract_addr = Address::generate(&env);
+        let key = Symbol::new(&env, "core_game");
+
+        client.set_contract(&key, &contract_addr);
+        let retrieved = client.get_contract(&key);
+        assert_eq!(retrieved, contract_addr);
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_contract_missing_panics() {
+        let (env, _, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        let missing = Symbol::new(&env, "missing");
+        client.get_contract(&missing);
+    }
+
+    #[test]
+    fn set_and_check_role() {
+        let (env, _, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        let member = Address::generate(&env);
+        let role = Symbol::new(&env, "pauser");
+
+        assert!(!client.has_role(&role, &member));
+        client.set_role(&role, &member, &true);
+        assert!(client.has_role(&role, &member));
+        client.set_role(&role, &member, &false);
+        assert!(!client.has_role(&role, &member));
+    }
+
+    #[test]
+    fn get_admin_returns_initialized_admin() {
+        let (env, admin, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        assert_eq!(client.get_admin(), admin);
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_admin_before_init_panics() {
+        let env = Env::default();
+        let contract_id = env.register(AdminRegistryContract, ());
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        client.get_admin();
+    }
+}

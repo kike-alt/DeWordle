@@ -1,24 +1,41 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SessionProjectionEntity } from '../entities/session-projection.entity';
 import { IngestedEventDto } from '../dto/ingested-event.dto';
+import { IndexerLogContext } from '../indexer.service';
+import { CURRENT_PROJECTION_VERSION } from './projection-version';
 
 @Injectable()
 export class ProjectionService {
+  private readonly logger = new Logger(ProjectionService.name);
+
   constructor(
     @InjectRepository(SessionProjectionEntity)
     private readonly sessionsRepo: Repository<SessionProjectionEntity>,
   ) {}
 
-  async apply(event: IngestedEventDto) {
+  /**
+   * Applies an event to the projection. Idempotent: replaying the same
+   * session_finalized event produces the same projection state (upsert by sessionId).
+   */
+  async apply(
+    event: IngestedEventDto,
+    context?: IndexerLogContext,
+  ): Promise<boolean> {
     if (event.topic !== 'session_finalized') {
-      return;
+      return false;
     }
 
-    const sessionId = String(event.payload.sessionId ?? '');
+    const sessionId = this.readStringField(event.payload, 'sessionId');
     if (!sessionId) {
-      return;
+      this.logger.warn({
+        msg: 'indexer.projection.skipped',
+        correlationId: context?.correlationId,
+        reason: 'missing_session_id',
+        txHash: event.txHash,
+      });
+      return false;
     }
 
     const existing = await this.sessionsRepo.findOne({
@@ -29,13 +46,24 @@ export class ProjectionService {
       id: existing?.id,
       network: event.network,
       sessionId,
-      player: String(event.payload.player ?? ''),
+      player: this.readStringField(event.payload, 'player'),
       dayId: Number(event.payload.dayId ?? 0),
-      status: String(event.payload.status ?? 'Finalized'),
+      status: this.readStringField(event.payload, 'status', 'Finalized'),
       attemptsUsed: Number(event.payload.attemptsUsed ?? 0),
       finalized: true,
+      schemaVersion: CURRENT_PROJECTION_VERSION,
     });
 
     await this.sessionsRepo.save(projection);
+    return true;
+  }
+
+  private readStringField(
+    payload: Record<string, unknown>,
+    key: string,
+    fallback = '',
+  ): string {
+    const value = payload[key];
+    return typeof value === 'string' ? value : fallback;
   }
 }

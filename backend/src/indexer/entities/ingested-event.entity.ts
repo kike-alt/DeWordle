@@ -1,7 +1,17 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity('ingested_events')
 @Index(['network', 'txHash', 'eventIndex'], { unique: true })
+@Index(['topic'])
+@Index(['ledger'])
+@Index(['createdAt'])
+@Index(['network', 'topic'])
 export class IngestedEventEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -23,6 +33,9 @@ export class IngestedEventEntity {
 
   @Column()
   eventIndex: number;
+
+  @Column({ nullable: true })
+  auditHash?: string;
 
   @Column({ type: 'jsonb' })
   payload: Record<string, unknown>;

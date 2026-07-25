@@ -25,3 +25,22 @@ cargo build --workspace --target wasm32-unknown-unknown --release
 Update contract IDs in:
 - `soroban/config/contracts.testnet.json`
 - `soroban/config/contracts.mainnet.json`
+
+## Testnet Environment Variables
+
+When running scripts against testnet, set the following variables.
+
+| Variable | Required | Notes |
+|---|---|---|
+| `STELLAR_NETWORK` | ✅ | Set to `testnet` |
+| `STELLAR_RPC_URL` | ✅ | Soroban RPC endpoint |
+| `STELLAR_SECRET_KEY` | ✅ | Deployer account key |
+| `STELLAR_NETWORK_PASSPHRASE` | ✅ | Network passphrase |
+| `CONTRACT_*_ID` | ⬜ | Falls back to `contracts.testnet.json` |
+
+**Quick check** — verify your env before running scripts:
+```bash
+echo "Network: $STELLAR_NETWORK"
+echo "RPC: $STELLAR_RPC_URL"
+[[ -z "$STELLAR_SECRET_KEY" ]] && echo "WARNING: STELLAR_SECRET_KEY not set"
+```

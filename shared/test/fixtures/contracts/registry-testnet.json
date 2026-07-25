@@ -1,0 +1,11 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "passphrase": "Test SDF Network ; September 2015",
+  "contracts": {
+    "admin_registry": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+    "core_game": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+    "rewards": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+    "achievements": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5"
+  }
+}

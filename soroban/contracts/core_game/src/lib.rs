@@ -1,5 +1,7 @@
 #![no_std]
 
+pub mod fixtures;
+
 use dewordle_auth::{require_admin, set_admin};
 use dewordle_types::{DayConfig, GuessResult, PlayerStreak, Session, SessionStatus};
 use dewordle_utils::current_day_id;
@@ -333,12 +335,190 @@ mod tests {
     use super::*;
     use soroban_sdk::testutils::Address as _;
 
+    fn setup() -> (Env, Address, Address) {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let contract_id = env.register(CoreGameContract, ());
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        client.init(&admin);
+        (env, admin, contract_id)
+    }
+
+    fn publish_day(env: &Env, client: &CoreGameContractClient<'_>, day_id: u32) {
+        let commitment = BytesN::from_array(env, &[1u8; 32]);
+        client.set_day_config(&day_id, &commitment, &6, &u64::MAX);
+    }
+
     #[test]
     fn init_sets_unpaused_state() {
-        let env = Env::default();
-        let admin = Address::generate(&env);
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        assert!(!client.is_paused());
+    }
 
-        CoreGameContract::init(env.clone(), admin);
-        assert!(!CoreGameContract::is_paused(env));
+    #[test]
+    #[should_panic]
+    fn init_twice_panics() {
+        let (env, admin, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        client.init(&admin);
+    }
+
+    #[test]
+    fn pause_and_unpause() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        client.pause(&true);
+        assert!(client.is_paused());
+        client.pause(&false);
+        assert!(!client.is_paused());
+    }
+
+    #[test]
+    #[should_panic]
+    fn create_session_when_paused_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        client.pause(&true);
+        let player = Address::generate(&env);
+        client.create_session(&player, &1, &0);
+    }
+
+    #[test]
+    fn create_session_success() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let session = client.get_session(&session_id);
+        assert_eq!(session.player, player);
+        assert_eq!(session.day_id, 1);
+        assert!(!session.finalized);
+    }
+
+    #[test]
+    #[should_panic]
+    fn nonce_reuse_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        client.create_session(&player, &1, &0);
+        client.create_session(&player, &1, &0);
+    }
+
+    #[test]
+    fn is_nonce_used_returns_true_after_session() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        assert!(!client.is_nonce_used(&player, &0));
+        client.create_session(&player, &1, &0);
+        assert!(client.is_nonce_used(&player, &0));
+    }
+
+    #[test]
+    fn submit_guess_increments_attempts() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        let result = client.submit_guess(&player, &session_id, &commitment, &1, &false);
+        assert_eq!(result.attempt_no, 1);
+        assert!(!result.is_correct);
+    }
+
+    #[test]
+    #[should_panic]
+    fn submit_guess_zero_commitment_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let zero = BytesN::from_array(&env, &[0u8; 32]);
+        client.submit_guess(&player, &session_id, &zero, &0, &false);
+    }
+
+    #[test]
+    #[should_panic]
+    fn submit_guess_wrong_player_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let other = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        client.submit_guess(&other, &session_id, &commitment, &1, &false);
+    }
+
+    #[test]
+    fn finalize_session_after_win() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        client.submit_guess(&player, &session_id, &commitment, &1, &true);
+        let session = client.finalize_session(&player, &session_id);
+        assert!(session.finalized);
+    }
+
+    #[test]
+    #[should_panic]
+    fn finalize_in_progress_session_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        client.finalize_session(&player, &session_id);
+    }
+
+    #[test]
+    #[should_panic]
+    fn finalize_twice_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        client.submit_guess(&player, &session_id, &commitment, &1, &true);
+        client.finalize_session(&player, &session_id);
+        client.finalize_session(&player, &session_id);
+    }
+
+    #[test]
+    fn attempt_limit_reached_sets_lost() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        for i in 0..6u8 {
+            let commitment = BytesN::from_array(&env, &[i + 2; 32]);
+            client.submit_guess(&player, &session_id, &commitment, &0, &false);
+        }
+        let session = client.get_session(&session_id);
+        assert!(matches!(session.status, SessionStatus::Lost));
+    }
+
+    #[test]
+    fn event_topics_match_fixtures() {
+        assert_eq!(fixtures::TOPIC_SESSION_STARTED, "session_started");
+        assert_eq!(fixtures::TOPIC_GUESS_SUBMITTED, "guess_submitted");
+        assert_eq!(fixtures::TOPIC_SESSION_FINALIZED, "session_finalized");
+        assert_eq!(fixtures::TOPIC_DAY_PUBLISHED, "day_published");
+        assert_eq!(fixtures::TOPIC_STREAK_UPDATED, "streak_updated");
+        assert_eq!(fixtures::TOPIC_CORE_GAME_PAUSED, "core_game_paused");
     }
 }

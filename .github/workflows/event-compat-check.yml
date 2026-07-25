@@ -1,0 +1,30 @@
+name: Event Compatibility Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "shared/events/**"
+      - "soroban/contracts/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "shared/events/**"
+      - "soroban/contracts/**"
+
+jobs:
+  event-compat:
+    name: Event Schema Compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: ./.github/actions/setup-node
+
+      - name: Check event schemas
+        run: npx tsx scripts/check-event-schemas.ts
+
+      - name: Run event compatibility tests
+        run: npx vitest run shared/test/event-compatibility.spec.ts

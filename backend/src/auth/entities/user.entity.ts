@@ -9,7 +9,6 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Exclude } from 'class-transformer';
 import { GameSession } from '../../game-sessions/entities/game-session.entity';
-import { Optional } from '@nestjs/common';
 
 @Entity('users')
 export class User {
@@ -57,9 +56,8 @@ export class User {
   @OneToMany(() => GameSession, (session) => session.user)
   sessions: GameSession[];
 
-  @Optional()
-  @ApiProperty({
-    description: 'Ethereum wallet address (must be unique)',
+  @ApiPropertyOptional({
+    description: 'Stellar/Ethereum wallet address',
     example: '0x742d35Cc6634C0532925a3b8D8Cc6f9b2F3d217',
     pattern: '^0x[a-fA-F0-9]{40}$',
     uniqueItems: true,
@@ -98,10 +96,10 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Optional: Add a method to get user without password
-  toJSON() {
-    const { password, ...userWithoutPassword } = this;
-    return userWithoutPassword;
+  toJSON(): Omit<this, 'password'> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _pw, ...rest } = this as this & { password: string };
+    return rest as Omit<this, 'password'>;
   }
 }
 

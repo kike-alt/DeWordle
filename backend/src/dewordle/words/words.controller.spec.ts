@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, NotFoundException } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { WordsModule } from './words.module';
 import { WordsService } from './words.service';
 
@@ -38,7 +38,11 @@ describe('WordsController (Integration Tests)', () => {
 
   describe('/words/random (GET)', () => {
     it('should return a random 5-letter word', async () => {
-      const mockWord = { word: 'crane' };
+      const mockWord = {
+        id: 'word-1',
+        word: 'crane',
+        isEnriched: false,
+      };
       jest.spyOn(wordsService, 'getRandomWord').mockResolvedValue(mockWord);
 
       await request(app.getHttpServer())

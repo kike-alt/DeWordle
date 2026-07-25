@@ -1,0 +1,11 @@
+{
+  "network": "mainnet",
+  "rpcUrl": "https://mainnet.sorobanrpc.com",
+  "passphrase": "Public Global Stellar Network ; September 2015",
+  "contracts": {
+    "admin_registry": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+    "core_game": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+    "rewards": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5",
+    "achievements": "CCJZ5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5P5Z5"
+  }
+}

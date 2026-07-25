@@ -1,0 +1,161 @@
+# Shared Fixtures Storage Layout
+
+**ID:** INFRA-205
+
+## Purpose
+
+Define a consistent storage layout for test fixtures across the
+frontend, backend, SDK, and QA assets so contributors can find,
+reuse, and add fixtures without duplication or guesswork.
+
+## Layout
+
+Every surface stores its fixtures under a `test/fixtures/` directory
+relative to the surface root. Shared (cross-surface) fixtures live
+under a top-level `shared/test/fixtures/` directory.
+
+```
+dewordle/
+├── shared/test/fixtures/          ← cross-surface fixtures
+│   ├── contracts/
+│   │   ├── registry-mainnet.json
+│   │   ├── registry-testnet.json
+│   │   ├── registry-local.json
+│   │   ├── session-finalized-event.json
+│   │   └── events/
+│   │       ├── ingest-batch-1.json
+│   │       └── ingest-batch-2.json
+│   ├── accounts/
+│   │   ├── alice.json
+│   │   └── bob.json
+│   └── words/
+│       └── sample-words.json
+│
+├── backend/
+│   ├── src/indexer/...            ← unit tests co-located with source
+│   ├── test/
+│   │   ├── fixtures/              ← backend-specific fixtures
+│   │   │   ├── indexer-lag-response.json
+│   │   │   └── seed-words-sample.json
+│   │   ├── app.e2e-spec.ts
+│   │   └── jest-e2e.json
+│   └── data/
+│       └── five-letter-words.txt  ← production word list (not a fixture)
+│
+├── frontend/
+│   └── src/
+│       ├── test/
+│       │   ├── fixtures/          ← frontend-specific fixtures
+│       │   │   ├── wallet-connection.json
+│       │   │   └── gameplay-tx.json
+│       │   ├── setup.ts
+│       │   └── wallet-tx-lifecycle.spec.ts
+│       └── lib/stellar/           ← SDK integration tests
+│
+├── soroban/
+│   ├── contracts/
+│   │   ├── core_game/
+│   │   │   ├── test_snapshots/    ← snapshot-based fixtures (per contract)
+│   │   │   └── src/fixtures.rs
+│   │   ├── rewards/
+│   │   │   ├── test_snapshots/
+│   │   │   └── src/fixtures.rs
+│   │   ├── admin_registry/
+│   │   │   ├── test_snapshots/
+│   │   │   └── src/fixtures.rs
+│   │   └── achievements/
+│   │       ├── test_snapshots/
+│   │       └── src/fixtures.rs
+│   └── tests/
+│       └── integration/
+│           ├── fixtures/          ← integration-level fixtures
+│           └── cross_contract_harness.rs
+│
+└── scripts/
+    └── fixture-sandbox.js         ← fixture management helper
+```
+
+## Fixture categories
+
+| Category | Location | Scope | Example |
+|---|---|---|---|
+| **Snapshot** (`test_snapshots/`) | Per-contract | Contract-level deterministic test data | `core_game/test_snapshots/` |
+| **Rust module** (`fixtures.rs`) | Per-contract | Shareable Rust test helpers | `core_game/src/fixtures.rs` |
+| **Surface-specific** (`test/fixtures/`) | Per surface (backend, frontend) | Test data for that surface only | `backend/test/fixtures/` |
+| **Shared** (`shared/test/fixtures/`) | Top-level | Fixtures consumed by ≥2 surfaces | Registry bundles, sample events |
+| **Integration** (`tests/integration/fixtures/`) | Soroban integration tests | Multi-contract test scenarios | `soroban/tests/integration/fixtures/` |
+
+## Naming conventions
+
+- Files use **kebab-case** with `.json` extension for JSON fixtures.
+- Rust snapshot files follow the Soroban CLI convention:
+  `<test_name>.<snapshot_number>.json`.
+- Fixtures that represent a single entity are named `<entity>.json`.
+- Fixtures that represent a batch or collection are named
+  `<context>-batch-<N>.json`.
+
+## Exemplified fixtures
+
+To demonstrate the pattern, the following shared fixtures have been
+placed in `shared/test/fixtures/`:
+
+### Registry bundles
+
+```bash
+shared/test/fixtures/contracts/registry-mainnet.json
+shared/test/fixtures/contracts/registry-testnet.json
+shared/test/fixtures/contracts/registry-local.json
+```
+
+These are copies of the manifests in `soroban/config/`, provided
+here so that backend and frontend tests can load them without
+importing from `soroban/`.
+
+### Sample event
+
+```bash
+shared/test/fixtures/contracts/session-finalized-event.json
+```
+
+A realistic `session_finalized` event payload for indexer projection
+tests.
+
+## Migration guide
+
+Existing fixtures do not need to be moved immediately. When adding new
+fixtures:
+
+1. If the fixture is used by only one surface → place it in that
+   surface's `test/fixtures/`.
+2. If the fixture is used by ≥2 surfaces → place it in
+   `shared/test/fixtures/`.
+3. If the fixture is a Soroban contract snapshot → place it in the
+   contract's `test_snapshots/` (auto-generated by `cargo test`).
+
+## Loading fixtures in tests
+
+### Node.js (backend / scripts)
+
+```javascript
+const fixture = require("../../shared/test/fixtures/contracts/registry-testnet.json");
+```
+
+### TypeScript (frontend)
+
+```typescript
+import registryFixture from "$shared/test/fixtures/contracts/registry-testnet.json";
+```
+
+> Note: `$shared` is a path alias — configure in the surface's
+> `tsconfig.json` if not already set.
+
+### Rust (Soroban contracts)
+
+```rust
+use crate::fixtures::{alice, bob, test_registry};
+```
+
+## Related
+
+- `scripts/fixture-sandbox.js` — helper for fixture creation/teardown
+- `scripts/validate-registry-bundle.js` — registry bundle validator
