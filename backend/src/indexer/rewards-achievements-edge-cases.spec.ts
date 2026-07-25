@@ -60,12 +60,17 @@ function makeFinalizedEvent(
   };
 }
 
-function makeProjectionService(existingSession: SessionProjectionEntity | null = null) {
+function makeProjectionService(
+  existingSession: SessionProjectionEntity | null = null,
+) {
   const saved: unknown[] = [];
   const mockRepo = {
     findOne: jest.fn().mockResolvedValue(existingSession),
     create: jest.fn((data: unknown) => data),
-    save: jest.fn(async (data: unknown) => { saved.push(data); return data; }),
+    save: jest.fn(async (data: unknown) => {
+      saved.push(data);
+      return data;
+    }),
   };
   const service = new ProjectionService(mockRepo as never);
   return { service, saved, mockRepo };
@@ -88,7 +93,9 @@ describe('QA-210 edge-case: duplicate events (idempotency)', () => {
 
     // Should have saved twice (upsert), but both times with the same sessionId
     expect(saved).toHaveLength(2);
-    const ids = (saved as Array<Record<string, unknown>>).map((s) => s['sessionId']);
+    const ids = (saved as Array<Record<string, unknown>>).map(
+      (s) => s['sessionId'],
+    );
     expect(ids.every((id) => id === 'sess-edge-1')).toBe(true);
   });
 
@@ -107,7 +114,10 @@ describe('QA-210 edge-case: duplicate events (idempotency)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     const service = module.get(RewardSummaryService);
@@ -153,7 +163,12 @@ describe('QA-210 edge-case: missing definitions and null payload fields', () => 
   it('ProjectionService: missing player field falls back to empty string (does not throw)', async () => {
     const { service, saved } = makeProjectionService();
     const event = makeFinalizedEvent({
-      payload: { sessionId: 'sess-edge-1', dayId: 1, status: 'Won', attemptsUsed: 3 },
+      payload: {
+        sessionId: 'sess-edge-1',
+        dayId: 1,
+        status: 'Won',
+        attemptsUsed: 3,
+      },
     });
 
     await expect(service.apply(event)).resolves.toBe(true);
@@ -173,7 +188,10 @@ describe('QA-210 edge-case: empty balances', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     const service = module.get(RewardSummaryService);
@@ -188,7 +206,10 @@ describe('QA-210 edge-case: empty balances', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     const service = module.get(RewardSummaryService);
@@ -213,7 +234,13 @@ describe('QA-210 edge-case: partial state transitions', () => {
   it('ProjectionService: applies attemptsUsed=0 without throwing (clamped to 1 by scoring)', async () => {
     const { service, saved } = makeProjectionService();
     const event = makeFinalizedEvent({
-      payload: { sessionId: 'sess-edge-1', player: 'GABC', dayId: 1, status: 'Won', attemptsUsed: 0 },
+      payload: {
+        sessionId: 'sess-edge-1',
+        player: 'GABC',
+        dayId: 1,
+        status: 'Won',
+        attemptsUsed: 0,
+      },
     });
 
     await service.apply(event);
@@ -223,11 +250,18 @@ describe('QA-210 edge-case: partial state transitions', () => {
   });
 
   it('RewardSummaryService: attemptsUsed=0 is clamped to 1 for scoring (6 pts max)', async () => {
-    const repo = { find: jest.fn().mockResolvedValue([makeSession({ attemptsUsed: 0, status: 'Won' })]) };
+    const repo = {
+      find: jest
+        .fn()
+        .mockResolvedValue([makeSession({ attemptsUsed: 0, status: 'Won' })]),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     const service = module.get(RewardSummaryService);
@@ -242,15 +276,18 @@ describe('QA-210 edge-case: partial state transitions', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     const service = module.get(RewardSummaryService);
 
     repo.find.mockResolvedValue([
-      makeSession({ sessionId: 'a', attemptsUsed: 1, status: 'Won' }),  // 6
+      makeSession({ sessionId: 'a', attemptsUsed: 1, status: 'Won' }), // 6
       makeSession({ sessionId: 'b', attemptsUsed: 6, status: 'Lost' }), // 0
-      makeSession({ sessionId: 'c', attemptsUsed: 4, status: 'Won' }),  // 3
+      makeSession({ sessionId: 'c', attemptsUsed: 4, status: 'Won' }), // 3
       makeSession({ sessionId: 'd', attemptsUsed: 6, status: 'Lost' }), // 0
     ]);
 

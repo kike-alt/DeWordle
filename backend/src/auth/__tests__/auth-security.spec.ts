@@ -45,7 +45,9 @@ describe('SECURITY-208: Authentication Token Hardening Suite', () => {
 
   it('should instantly invalidate tokens upon use to prevent token replay attacks', async () => {
     jest.spyOn(repo, 'findOne').mockResolvedValue(mockUser as any);
-    jest.spyOn(repo, 'save').mockResolvedValue({ ...mockUser, resetPasswordToken: null } as any);
+    jest
+      .spyOn(repo, 'save')
+      .mockResolvedValue({ ...mockUser, resetPasswordToken: null } as any);
 
     await service.resetPassword(
       'active-secure-token-hash-xyz',

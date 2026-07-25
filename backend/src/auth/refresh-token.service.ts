@@ -24,7 +24,10 @@ export class RefreshTokenService {
     ipAddress?: string,
   ): Promise<{ token: string; expiresAt: Date }> {
     const rawToken = crypto.randomBytes(40).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
@@ -71,7 +74,10 @@ export class RefreshTokenService {
     userAgent?: string,
     ipAddress?: string,
   ): Promise<{ token: string; expiresAt: Date }> {
-    const tokenHash = crypto.createHash('sha256').update(oldToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(oldToken)
+      .digest('hex');
 
     const existingToken = await this.refreshTokenRepo.findOne({
       where: { tokenHash },
@@ -84,7 +90,12 @@ export class RefreshTokenService {
     existingToken.revokedAt = new Date();
     await this.refreshTokenRepo.save(existingToken);
 
-    return this.generateRefreshToken(walletAddress, userId, userAgent, ipAddress);
+    return this.generateRefreshToken(
+      walletAddress,
+      userId,
+      userAgent,
+      ipAddress,
+    );
   }
 
   async revokeRefreshToken(token: string): Promise<void> {

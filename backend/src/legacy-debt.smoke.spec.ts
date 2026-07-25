@@ -120,9 +120,13 @@ describe('[BUCKET 1] Persistence Layer & Index Alignment Optimization', () => {
   });
 
   // Progress markers — graduate these todos as bucket cleanup lands
-  it.todo('all entity relations use explicit JoinColumn (no implicit FK magic)');
+  it.todo(
+    'all entity relations use explicit JoinColumn (no implicit FK magic)',
+  );
   it.todo('word.entity.ts has a composite index on (isActive, difficulty)');
-  it.todo('AddProjectionQueryIndexes migration adds all planned composite indices');
+  it.todo(
+    'AddProjectionQueryIndexes migration adds all planned composite indices',
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -158,7 +162,9 @@ describe('[BUCKET 2] Real-Time Infrastructure Decoupling', () => {
   // Progress markers — graduate as decoupling work lands
   it.todo('backend/src/realtime/ directory exists after decoupling');
   it.todo('realtime.module.ts is registered in app.module.ts');
-  it.todo('game-sessions controller emits events via EventEmitter2, not inline');
+  it.todo(
+    'game-sessions controller emits events via EventEmitter2, not inline',
+  );
   it.todo('WebSocket gateway unit spec exists and passes');
   it.todo('realtime.spec.ts verifies decoupled event isolation');
 });
@@ -174,7 +180,9 @@ describe('[BUCKET 2] Real-Time Infrastructure Decoupling', () => {
 describe('[BUCKET 3] State Machine Escrow Guarding', () => {
   describe('current state baseline', () => {
     it('game-sessions status enum exists (legacy state transition reference)', () => {
-      expect(srcFileExists('game-sessions', 'enums', 'sessionStatus.ts')).toBe(true);
+      expect(srcFileExists('game-sessions', 'enums', 'sessionStatus.ts')).toBe(
+        true,
+      );
     });
 
     it('sessionStatus.ts defines at least one status value', () => {
@@ -184,7 +192,9 @@ describe('[BUCKET 3] State Machine Escrow Guarding', () => {
     });
 
     it('game-sessions.service.ts exists as the current state owner', () => {
-      expect(srcFileExists('game-sessions', 'game-sessions.service.ts')).toBe(true);
+      expect(srcFileExists('game-sessions', 'game-sessions.service.ts')).toBe(
+        true,
+      );
     });
   });
 
@@ -193,7 +203,9 @@ describe('[BUCKET 3] State Machine Escrow Guarding', () => {
   it.todo('escrow state machine covers all valid status transitions');
   it.todo('invalid status transitions are rejected at the state machine level');
   it.todo('escrow state spec passes: npm run test:escrow-states');
-  it.todo('no hardcoded switch-case status logic remains in game-sessions.service.ts');
+  it.todo(
+    'no hardcoded switch-case status logic remains in game-sessions.service.ts',
+  );
 });
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Not, IsNull } from 'typeorm';
@@ -58,7 +54,9 @@ export class WordScheduler implements OnModuleInit {
 
     const existing = await this.wordRepo.findOneBy({ dailyDate: todayDate });
     if (existing) {
-      this.logger.log(`Daily word for ${today} already selected: ${existing.word}`);
+      this.logger.log(
+        `Daily word for ${today} already selected: ${existing.word}`,
+      );
       return;
     }
 

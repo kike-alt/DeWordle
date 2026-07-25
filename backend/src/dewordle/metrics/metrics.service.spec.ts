@@ -24,7 +24,9 @@ describe('MetricsService', () => {
 
   it('should initialize a new registry and call collectDefaultMetrics', () => {
     expect(Registry).toHaveBeenCalledTimes(1);
-    expect(collectDefaultMetrics).toHaveBeenCalledWith({ register: registryInstance });
+    expect(collectDefaultMetrics).toHaveBeenCalledWith({
+      register: registryInstance,
+    });
   });
 
   it('should return metrics from the registry', async () => {

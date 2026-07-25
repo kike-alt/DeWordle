@@ -1,8 +1,9 @@
 'use client';
 
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useFocusTrap } from '@/lib/accessibility';
 
 type ModalProps = {
   closeModal: () => void;
@@ -18,6 +19,19 @@ export function LoginForm({ closeModal }: ModalProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(true, containerRef);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [closeModal]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +57,7 @@ export function LoginForm({ closeModal }: ModalProps) {
   return (
     <div className="min-w-[400px] px-2 max-w-md w-full sm:w-auto">
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${formId}-title`}
@@ -62,7 +77,7 @@ export function LoginForm({ closeModal }: ModalProps) {
             className="w-8 h-8 p-2 rounded-full bg-black items-center justify-center flex cursor-pointer border focus:outline-none focus:ring-2 focus:ring-white/60 touch-target"
             onClick={() => closeModal()}
           >
-            <span aria-hidden="true">✕</span>
+            <span aria-hidden="true">&#x2715;</span>
           </button>
         </div>
 
@@ -145,7 +160,7 @@ export function LoginForm({ closeModal }: ModalProps) {
               </div>
               <button
                 type="button"
-                className="text-white text-sm hover:text-purple-300 transition-colors focus:outline-none focus:underline"
+                className="text-white text-sm hover:text-purple-300 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-300 focus:underline rounded"
               >
                 Forgot Password?
               </button>
@@ -162,7 +177,7 @@ export function LoginForm({ closeModal }: ModalProps) {
                 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #9333ea 100%)',
             }}
           >
-            {isLoading ? 'Loading…' : isSignup ? 'Sign Up' : 'Login'}
+            {isLoading ? 'Loading\u2026' : isSignup ? 'Sign Up' : 'Login'}
           </button>
 
           <div className="text-center">
@@ -172,7 +187,7 @@ export function LoginForm({ closeModal }: ModalProps) {
             <button
               type="button"
               onClick={() => setIsSignup(!isSignup)}
-              className="text-purple-300 text-sm hover:text-purple-200 transition-colors underline focus:outline-none focus:ring-1 focus:ring-purple-300"
+              className="text-purple-300 text-sm hover:text-purple-200 transition-colors underline focus:outline-none focus:ring-1 focus:ring-purple-300 rounded"
             >
               {isSignup ? 'Login' : 'Sign Up'}
             </button>

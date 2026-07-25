@@ -66,7 +66,11 @@ export class UserController {
   @ApiUnauthorizedResponse({
     description: 'Unauthorized - Invalid or missing JWT token',
     schema: {
-      example: { statusCode: 401, message: 'Unauthorized', error: 'Unauthorized' },
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+      },
     },
   })
   async updateProfile(

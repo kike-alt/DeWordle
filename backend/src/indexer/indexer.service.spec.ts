@@ -152,17 +152,15 @@ describe('IndexerService.poll', () => {
       contractId: 'CABC',
     });
 
-    jest
-      .spyOn(svc, 'fetchEvents')
-      .mockResolvedValue([
-        {
-          contractId: '',
-          topic: 'session_finalized',
-          txHash: 'tx1',
-          ledger: 5,
-          eventIndex: 0,
-        },
-      ]);
+    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
+      {
+        contractId: '',
+        topic: 'session_finalized',
+        txHash: 'tx1',
+        ledger: 5,
+        eventIndex: 0,
+      },
+    ]);
 
     const count = await svc.poll();
     expect(count).toBe(0);
@@ -253,10 +251,12 @@ describe('IndexerService.poll', () => {
       contractId: 'CABC',
     });
 
-    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
-      null as unknown as Record<string, unknown>,
-      'garbage' as unknown as Record<string, unknown>,
-    ]);
+    jest
+      .spyOn(svc, 'fetchEvents')
+      .mockResolvedValue([
+        null as unknown as Record<string, unknown>,
+        'garbage' as unknown as Record<string, unknown>,
+      ]);
 
     const count = await svc.poll();
     expect(count).toBe(0);

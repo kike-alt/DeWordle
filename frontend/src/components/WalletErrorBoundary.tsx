@@ -13,6 +13,12 @@ interface State {
   error: Error | null;
 }
 
+function redactSensitive(raw: string): string {
+  return raw
+    .replace(/[A-Za-z0-9]{20,}/g, "****")
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "****@****.***");
+}
+
 export class WalletErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -24,7 +30,7 @@ export class WalletErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.warn("WalletErrorBoundary caught:", error.message, info.componentStack);
+    console.warn("WalletErrorBoundary caught:", redactSensitive(error.message), info.componentStack);
   }
 
   handleReset = () => {
@@ -48,7 +54,9 @@ export class WalletErrorBoundary extends Component<Props, State> {
             {this.props.fallbackLabel || "Something went wrong"}
           </h2>
           <p className="max-w-md text-sm text-red-200">
-            {this.state.error?.message || "An unexpected error occurred in the wallet provider."}
+            {redactSensitive(
+              this.state.error?.message || "An unexpected error occurred in the wallet provider."
+            )}
           </p>
           <div className="flex gap-3">
             <button
