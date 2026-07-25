@@ -9,6 +9,7 @@ import { AchievementSummaryDto, AchievementEntryDto } from './achievement-summar
 import { PlayerSummaryDto } from './player-profile.dto';
 import { SessionHistoryDto } from './session-history.dto';
 import { CacheLoggerService } from './cache-logger.service';
+import { CacheMetricsService } from './cache-metrics.service';
 
 const CACHE_TTL = {
   achievements: 30_000,
@@ -24,6 +25,7 @@ export class ReadApiController {
     private readonly sessionsRepo: Repository<SessionProjectionEntity>,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly cacheLogger: CacheLoggerService,
+    private readonly cacheMetrics?: CacheMetricsService,
   ) {}
 
   @Get('achievements/:address')
@@ -39,10 +41,12 @@ export class ReadApiController {
     const cacheKey = `achievements:${address}`;
     const cached = await this.cache.get<AchievementSummaryDto>(cacheKey);
     if (cached) {
-      this.cacheLogger.hit(cacheKey, CACHE_TTL.achievements);
+      this.cacheMetrics?.recordHit('achievements');
+      this.cacheLogger?.hit(cacheKey, CACHE_TTL.achievements);
       return cached;
     }
-    this.cacheLogger.miss(cacheKey);
+    this.cacheMetrics?.recordMiss('achievements');
+    this.cacheLogger?.miss(cacheKey);
 
     const sessions = await this.sessionsRepo.find({
       where: { player: address },
@@ -88,7 +92,7 @@ export class ReadApiController {
     };
 
     await this.cache.set(cacheKey, result, CACHE_TTL.achievements);
-    this.cacheLogger.set(cacheKey, CACHE_TTL.achievements);
+    this.cacheLogger?.set(cacheKey, CACHE_TTL.achievements);
 
     return result;
   }
@@ -106,10 +110,12 @@ export class ReadApiController {
     const cacheKey = `playerSummary:${address}`;
     const cached = await this.cache.get<PlayerSummaryDto>(cacheKey);
     if (cached) {
-      this.cacheLogger.hit(cacheKey, CACHE_TTL.playerSummary);
+      this.cacheMetrics?.recordHit('playerSummary');
+      this.cacheLogger?.hit(cacheKey, CACHE_TTL.playerSummary);
       return cached;
     }
-    this.cacheLogger.miss(cacheKey);
+    this.cacheMetrics?.recordMiss('playerSummary');
+    this.cacheLogger?.miss(cacheKey);
 
     const sessions = await this.sessionsRepo.find({
       where: { player: address },
@@ -155,7 +161,7 @@ export class ReadApiController {
     };
 
     await this.cache.set(cacheKey, result, CACHE_TTL.playerSummary);
-    this.cacheLogger.set(cacheKey, CACHE_TTL.playerSummary);
+    this.cacheLogger?.set(cacheKey, CACHE_TTL.playerSummary);
 
     return result;
   }
@@ -181,10 +187,12 @@ export class ReadApiController {
 
     const cached = await this.cache.get<SessionHistoryDto>(cacheKey);
     if (cached) {
-      this.cacheLogger.hit(cacheKey, CACHE_TTL.sessions);
+      this.cacheMetrics?.recordHit('sessions');
+      this.cacheLogger?.hit(cacheKey, CACHE_TTL.sessions);
       return cached;
     }
-    this.cacheLogger.miss(cacheKey);
+    this.cacheMetrics?.recordMiss('sessions');
+    this.cacheLogger?.miss(cacheKey);
 
     const where = player ? { player } : {};
 
@@ -211,7 +219,7 @@ export class ReadApiController {
     };
 
     await this.cache.set(cacheKey, result, CACHE_TTL.sessions);
-    this.cacheLogger.set(cacheKey, CACHE_TTL.sessions);
+    this.cacheLogger?.set(cacheKey, CACHE_TTL.sessions);
 
     return result;
   }
@@ -219,12 +227,14 @@ export class ReadApiController {
   async invalidatePlayerCache(address: string): Promise<void> {
     const keys = [`achievements:${address}`, `playerSummary:${address}`];
     await Promise.all(keys.map((k) => this.cache.del(k)));
-    this.cacheLogger.invalidation('player-update', keys);
+    this.cacheMetrics?.recordInvalidation('player-update');
+    this.cacheLogger?.invalidation('player-update', keys);
   }
 
   async invalidateSessionCache(): Promise<void> {
     const keys = ['sessions:all:0:20'];
     await Promise.all(keys.map((k) => this.cache.del(k)));
-    this.cacheLogger.invalidation('session-update', keys);
+    this.cacheMetrics?.recordInvalidation('session-update');
+    this.cacheLogger?.invalidation('session-update', keys);
   }
 }

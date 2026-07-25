@@ -16,6 +16,9 @@ jobs:
 
       - name: Set up Node
         uses: ./.github/actions/setup-node
+        with:
+          verify: "true"
+          workspaces: "frontend"
 
       - name: Verify Frontend
         run: npm run verify:frontend
