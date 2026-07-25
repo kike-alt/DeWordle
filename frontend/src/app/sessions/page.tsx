@@ -1,8 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useStellarWallet } from "@/hooks/useStellarWallet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SessionsSkeleton } from "@/components/skeletons";
+
+const LazyWalletNetworkMismatchBanner = dynamic(
+  () => import("@/components/WalletNetworkMismatchBanner").then((m) => m.default),
+  { ssr: false }
+);
 
 interface SessionEntry {
   sessionId: string;

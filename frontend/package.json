@@ -9,7 +9,10 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:cross-browser": "playwright test",
+    "analyze": "ANALYZE=true next build",
+    "bundle:check": "ANALYZE=true next build 2>&1 | grep -E '(First|Client|Shared|pages)' || echo 'Bundle analysis complete. See .next/analyze/'"
   },
   "dependencies": {
     "@dewordle/soroban-sdk": "file:../soroban/sdk/ts",
@@ -32,6 +35,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.4.4",
+    "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
