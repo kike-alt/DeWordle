@@ -13,7 +13,10 @@ import { Repository, MoreThan } from 'typeorm';
 import { PasswordReset } from './entities/password-reset.entity';
 import { EmailService } from './email.service';
 import { User } from './entities/user.entity';
+import { RefreshTokenService } from './refresh-token.service';
 import * as crypto from 'crypto';
+
+const ACCESS_TOKEN_EXPIRY = '15m';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +29,7 @@ export class AuthService {
     @InjectRepository(PasswordReset)
     private readonly passwordResetRepo: Repository<PasswordReset>,
     private readonly emailService: EmailService,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   /**
@@ -101,8 +105,13 @@ export class AuthService {
   /**
    * Signup Orchestrator
    */
-  async signup(signupDto: SignupDto): Promise<{
+  async signup(
+    signupDto: SignupDto,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{
     access_token: string;
+    refresh_token: string;
     user: {
       id: number;
       email: string;
@@ -130,10 +139,18 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    const token = this.generateToken(newUser.id, newUser.email);
+    const access_token = this.generateAccessToken(newUser.id, newUser.email);
+    const { token: refresh_token } =
+      await this.refreshTokenService.generateRefreshToken(
+        newUser.email,
+        newUser.id,
+        userAgent,
+        ipAddress,
+      );
 
     return {
-      access_token: token,
+      access_token,
+      refresh_token,
       user: {
         id: newUser.id,
         email: newUser.email,
@@ -145,8 +162,13 @@ export class AuthService {
   /**
    * Credential Verification & Sign-In Processing Engine
    */
-  async login(loginDto: LoginDto): Promise<{
+  async login(
+    loginDto: LoginDto,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{
     access_token: string;
+    refresh_token: string;
     user: {
       id: number;
       email: string;
@@ -166,10 +188,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const token = this.generateToken(user.id, user.email);
+    const access_token = this.generateAccessToken(user.id, user.email);
+    const { token: refresh_token } =
+      await this.refreshTokenService.generateRefreshToken(
+        user.email,
+        user.id,
+        userAgent,
+        ipAddress,
+      );
 
     return {
-      access_token: token,
+      access_token,
+      refresh_token,
       user: {
         id: user.id,
         email: user.email,
@@ -200,10 +230,52 @@ export class AuthService {
   }
 
   /**
+   * Token Refresh Handler
+   */
+  async refreshTokens(
+    refreshToken: string,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    const tokenData =
+      await this.refreshTokenService.validateRefreshToken(refreshToken);
+
+    const { token: newRefreshToken } =
+      await this.refreshTokenService.rotateRefreshToken(
+        refreshToken,
+        tokenData.walletAddress,
+        tokenData.user.id,
+        userAgent,
+        ipAddress,
+      );
+
+    const access_token = this.generateAccessToken(
+      tokenData.user.id,
+      tokenData.user.email,
+    );
+
+    return { access_token, refresh_token: newRefreshToken };
+  }
+
+  /**
+   * Logout Handler
+   */
+  async logout(refreshToken: string): Promise<void> {
+    await this.refreshTokenService.revokeRefreshToken(refreshToken);
+  }
+
+  /**
+   * Get Active Sessions
+   */
+  async getSessions(walletAddress: string) {
+    return this.refreshTokenService.getActiveSessions(walletAddress);
+  }
+
+  /**
    * Internal Signature Factory Methods
    */
-  private generateToken(userId: number, email: string): string {
+  private generateAccessToken(userId: number, email: string): string {
     const payload = { sub: userId, email };
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, { expiresIn: ACCESS_TOKEN_EXPIRY });
   }
 }
