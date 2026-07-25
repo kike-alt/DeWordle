@@ -5,36 +5,26 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
-const cspHeader = `
-  default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline';
-  style-src 'self' 'unsafe-inline';
-  img-src 'self' blob: data:;
-  font-src 'self';
-  connect-src 'self' https://horizon-testnet.stellar.org https://horizon.stellar.org https://soroban-testnet.stellar.org https://*.sentry.io wss://*.socket.io;
-  frame-src 'none';
-  object-src 'none';
-  base-uri 'self';
-  form-action 'self';
-`.replace(/\s{2,}/g, ' ').trim();
-
+/**
+ * PERF-104: Frontend image optimisation with WebP/AVIF and lazy loading.
+ */
 const nextConfig: NextConfig = {
-  async headers() {
-    return [
+  transpilePackages: ["@dewordle/soroban-sdk"],
+
+  images: {
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [375, 640, 768, 1024, 1280, 1536],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    minimumCacheTTL: 86400,
+    remotePatterns: [
       {
-        // Apply security headers to all routes
-        source: "/(.*)",
-        headers: [
-          { key: "Content-Security-Policy", value: cspHeader },
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-          { key: "X-XSS-Protection", value: "1; mode=block" }
-        ],
+        protocol: "https",
+        hostname: "assets.dewordle.io",
       },
-    ];
+    ],
   },
+
+  compress: true,
 };
 
 export default withBundleAnalyzer(nextConfig);
