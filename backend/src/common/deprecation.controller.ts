@@ -7,11 +7,13 @@ import {
   getDeprecatedEndpoints,
   type EndpointEntry,
 } from './deprecation-map';
+import { Deprecated } from './deprecated.decorator';
 
 @ApiTags('Deprecation Map')
 @Controller('api/v1/deprecation')
 export class DeprecationController {
   @Get()
+  @Deprecated('v1', '2026-12-31')
   @ApiOperation({
     summary: 'Get deprecation map for all pre-Soroban REST endpoints',
     description:
@@ -23,18 +25,21 @@ export class DeprecationController {
   }
 
   @Get('active')
+  @Deprecated('v1', '2026-12-31')
   @ApiOperation({ summary: 'Get active (stable) endpoints' })
   getActive(): EndpointEntry[] {
     return getActiveEndpoints();
   }
 
   @Get('transitional')
+  @Deprecated('v1', '2026-12-31')
   @ApiOperation({ summary: 'Get transitional endpoints' })
   getTransitional(): EndpointEntry[] {
     return getTransitionalEndpoints();
   }
 
   @Get('deprecated')
+  @Deprecated('v1', '2026-12-31')
   @ApiOperation({ summary: 'Get deprecated endpoints' })
   getDeprecated(): EndpointEntry[] {
     return getDeprecatedEndpoints();
