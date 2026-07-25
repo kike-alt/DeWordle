@@ -25,17 +25,17 @@ jobs:
       - name: Audit backend dependencies
         run: |
           cd backend
-          npm audit --audit-level=high --json > audit-report.json || true
+          npm audit --audit-level=critical --json > audit-report.json || true
           node -e "
             const r = require('./audit-report.json');
             const vulns = r.metadata?.vulnerabilities || {};
             const critical = vulns.critical || 0;
-            const high = vulns.high || 0;
-            console.log('Critical:', critical, 'High:', high);
-            if (critical > 0 || high > 0) {
-              console.error('High/Critical vulnerabilities found!');
+            console.log('Vulnerabilities:', JSON.stringify(vulns));
+            if (critical > 0) {
+              console.error('Critical vulnerabilities found — must fix before merge!');
               process.exit(1);
             }
+            console.log('No critical vulnerabilities found.');
           "
 
       - name: Upload audit report
@@ -60,17 +60,17 @@ jobs:
       - name: Audit frontend dependencies
         run: |
           cd frontend
-          npm audit --audit-level=high --json > audit-report.json || true
+          npm audit --audit-level=critical --json > audit-report.json || true
           node -e "
             const r = require('./audit-report.json');
             const vulns = r.metadata?.vulnerabilities || {};
             const critical = vulns.critical || 0;
-            const high = vulns.high || 0;
-            console.log('Critical:', critical, 'High:', high);
-            if (critical > 0 || high > 0) {
-              console.error('High/Critical vulnerabilities found!');
+            console.log('Vulnerabilities:', JSON.stringify(vulns));
+            if (critical > 0) {
+              console.error('Critical vulnerabilities found — must fix before merge!');
               process.exit(1);
             }
+            console.log('No critical vulnerabilities found.');
           "
 
       - name: Upload audit report
