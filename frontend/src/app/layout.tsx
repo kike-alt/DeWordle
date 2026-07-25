@@ -5,6 +5,7 @@ import "./globals.css";
 import { AuthProvider } from "../../context/AuthContext";
 import Header from "@/components/header";
 import { StellarWalletProvider } from "@/providers/stellar-wallet-provider";
+import { OnboardingProvider } from "@/providers/onboarding-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,16 +63,18 @@ export default function RootLayout({
           Skip to content
         </a>
         <StellarWalletProvider>
-          <AuthProvider>
-            <Header />
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className="flex flex-col relative w-full bg-primary-950 min-h-screen h-full overflow-x-hidden hide-scrollbar focus:outline-none"
-            >
-              {children}
-            </main>
-          </AuthProvider>
+          <OnboardingProvider>
+            <AuthProvider>
+              <Header />
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className="flex flex-col relative w-full bg-primary-950 min-h-screen h-full overflow-x-hidden hide-scrollbar focus:outline-none"
+              >
+                {children}
+              </main>
+            </AuthProvider>
+          </OnboardingProvider>
         </StellarWalletProvider>
       </body>
     </html>
