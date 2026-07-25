@@ -37,6 +37,8 @@
   ],
   "exclude": [
     "node_modules",
-    "src/components/PublicForm.tsx"
+    "src/components/PublicForm.tsx",
+    "e2e",
+    "playwright.config.ts"
   ]
 }
