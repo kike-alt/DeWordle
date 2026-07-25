@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
 import {
   JOB_QUEUES,
+  JobQueueName,
   JOB_RETRY_ATTEMPTS,
   JOB_BACKOFF_DELAY_MS,
   JOB_BACKOFF_TYPE,
@@ -110,7 +111,7 @@ export class JobService {
     };
   }
 
-  async getDeadLetterJobs(queueName: JOB_QUEUES[keyof typeof JOB_QUEUES]) {
+  async getDeadLetterJobs(queueName: JobQueueName) {
     let queue: Queue;
     switch (queueName) {
       case JOB_QUEUES.REWARD_CALCULATION:

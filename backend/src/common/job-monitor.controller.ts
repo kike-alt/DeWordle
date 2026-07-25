@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JobService } from './job.service';
-import { JOB_QUEUES } from './job.constants';
+import { JOB_QUEUES, JobQueueName } from './job.constants';
 
 @ApiTags('jobs')
 @Controller('jobs')
@@ -18,11 +18,11 @@ export class JobMonitorController {
   @ApiOperation({ summary: 'Get dead-letter jobs for a specific queue' })
   async getDeadLetter(@Param('queue') queue: string) {
     const validQueues = Object.values(JOB_QUEUES);
-    if (!validQueues.includes(queue as JOB_QUEUES[keyof typeof JOB_QUEUES])) {
+    if (!validQueues.includes(queue as JobQueueName)) {
       return { error: `Invalid queue. Valid queues: ${validQueues.join(', ')}` };
     }
     const jobs = await this.jobService.getDeadLetterJobs(
-      queue as JOB_QUEUES[keyof typeof JOB_QUEUES],
+      queue as JobQueueName,
     );
     return jobs.map((job) => ({
       id: job.id,
