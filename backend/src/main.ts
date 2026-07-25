@@ -13,9 +13,6 @@ async function bootstrap() {
 
     const metricsService = app.get(MetricsService);
     app.useGlobalInterceptors(new MetricsInterceptor(metricsService));
-
-    // Restrict CORS to the configured frontend origin.
-    // In development FRONTEND_URL defaults to http://localhost:3000.
     const allowedOrigin = process.env.FRONTEND_URL ?? 'http://localhost:3000';
     app.enableCors({
       origin: allowedOrigin,
