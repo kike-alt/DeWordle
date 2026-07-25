@@ -13,6 +13,7 @@ import {
 import { randomUUID } from 'crypto';
 import { INDEXER_STREAM_CORE_GAME } from './indexer.constants';
 import { ReplayAlertService } from './queue/replay-alert.service';
+import { sanitizeErrorMessage } from '../common/redaction';
 
 export interface IndexerLogContext {
   correlationId: string;
@@ -94,7 +95,7 @@ export class IndexerService {
         correlationId: context?.correlationId,
         topic: event.topic,
         ledger: event.ledger,
-        error: err instanceof Error ? err.message : String(err),
+        error: sanitizeErrorMessage(err),
       });
       throw err;
     }

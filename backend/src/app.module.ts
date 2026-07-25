@@ -18,6 +18,8 @@ import { MetricsController } from './dewordle/metrics/metrics.controller';
 import { IndexerModule } from './indexer/indexer.module';
 import { ReadApiController } from './common/read-api.controller';
 import { DeprecationController } from './common/deprecation.controller';
+import { AppCacheModule } from './common/cache.module';
+import { CacheMetricsService } from './common/cache-metrics.service';
 
 @Module({
   imports: [
@@ -59,8 +61,9 @@ import { DeprecationController } from './common/deprecation.controller';
     WordsModule,
     MetricsModule,
     IndexerModule,
+    AppCacheModule,
   ],
   controllers: [AppController, MetricsController, ReadApiController, DeprecationController],
-  providers: [AppService],
+  providers: [AppService, CacheMetricsService],
 })
 export class AppModule {}

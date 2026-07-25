@@ -1,11 +1,14 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Cache } from 'cache-manager';
 import { SessionProjectionEntity } from '../indexer/entities/session-projection.entity';
 import { AchievementSummaryDto, AchievementEntryDto } from './achievement-summary.dto';
 import { PlayerSummaryDto } from './player-profile.dto';
-import { SessionHistoryDto, SessionHistoryEntryDto } from './session-history.dto';
+import { SessionHistoryDto } from './session-history.dto';
+import { CacheLoggerService } from './cache-logger.service';
 
 @ApiTags('Read API (Projection-backed)')
 @Controller('api/v1')
@@ -13,6 +16,8 @@ export class ReadApiController {
   constructor(
     @InjectRepository(SessionProjectionEntity)
     private readonly sessionsRepo: Repository<SessionProjectionEntity>,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly cacheMetrics: CacheMetricsService,
   ) {}
 
   @Get('achievements/:address')
@@ -25,12 +30,19 @@ export class ReadApiController {
   async getAchievementSummary(
     @Param('address') address: string,
   ): Promise<AchievementSummaryDto> {
+    const cacheKey = `achievements:${address}`;
+    const cached = await this.cache.get<AchievementSummaryDto>(cacheKey);
+    if (cached) {
+      this.cacheMetrics.recordHit('achievements');
+      return cached;
+    }
+    this.cacheMetrics.recordMiss('achievements');
+
     const sessions = await this.sessionsRepo.find({
       where: { player: address },
     });
 
     const completedDays = sessions.filter((s) => s.finalized).length;
-    const totalDays = Math.max(completedDays, 5);
 
     const achievements: AchievementEntryDto[] = [
       {
@@ -63,11 +75,14 @@ export class ReadApiController {
 
     const unlocked = achievements.filter((a) => a.state === 'unlocked').length;
 
-    return {
+    const result: AchievementSummaryDto = {
       achievements,
       total: achievements.length,
       unlocked,
     };
+
+    await this.cache.set(cacheKey, result, CACHE_TTL.achievements);
+    return result;
   }
 
   @Get('players/:address/summary')
@@ -80,6 +95,14 @@ export class ReadApiController {
   async getPlayerSummary(
     @Param('address') address: string,
   ): Promise<PlayerSummaryDto> {
+    const cacheKey = `playerSummary:${address}`;
+    const cached = await this.cache.get<PlayerSummaryDto>(cacheKey);
+    if (cached) {
+      this.cacheMetrics.recordHit('playerSummary');
+      return cached;
+    }
+    this.cacheMetrics.recordMiss('playerSummary');
+
     const sessions = await this.sessionsRepo.find({
       where: { player: address },
       order: { updatedAt: 'DESC' },
@@ -110,7 +133,7 @@ export class ReadApiController {
 
     const lastPlayedAt = sortedDates[0]?.toISOString();
 
-    return {
+    const result: PlayerSummaryDto = {
       address,
       totalSessions,
       totalWins,
@@ -122,6 +145,9 @@ export class ReadApiController {
       },
       source: 'projection',
     };
+
+    await this.cache.set(cacheKey, result, CACHE_TTL.playerSummary);
+    return result;
   }
 
   @Get('sessions')
@@ -139,16 +165,27 @@ export class ReadApiController {
     @Query('skip') skip = 0,
     @Query('take') take = 20,
   ): Promise<SessionHistoryDto> {
+    const sanitizedSkip = Math.max(0, Number(skip));
+    const sanitizedTake = Math.max(1, Math.min(Number(take), 100));
+    const cacheKey = `sessions:${player ?? 'all'}:${sanitizedSkip}:${sanitizedTake}`;
+
+    const cached = await this.cache.get<SessionHistoryDto>(cacheKey);
+    if (cached) {
+      this.cacheMetrics.recordHit('sessions');
+      return cached;
+    }
+    this.cacheMetrics.recordMiss('sessions');
+
     const where = player ? { player } : {};
 
     const [sessions, total] = await this.sessionsRepo.findAndCount({
       where,
       order: { updatedAt: 'DESC' },
-      skip: Math.max(0, Number(skip)),
-      take: Math.max(1, Math.min(Number(take), 100)),
+      skip: sanitizedSkip,
+      take: sanitizedTake,
     });
 
-    return {
+    const result: SessionHistoryDto = {
       sessions: sessions.map((s) => ({
         sessionId: s.sessionId,
         player: s.player,
@@ -159,8 +196,23 @@ export class ReadApiController {
         updatedAt: s.updatedAt.toISOString(),
       })),
       total,
-      skip: Number(skip),
-      take: Number(take),
+      skip: sanitizedSkip,
+      take: sanitizedTake,
     };
+
+    await this.cache.set(cacheKey, result, CACHE_TTL.sessions);
+    return result;
+  }
+
+  async invalidatePlayerCache(address: string): Promise<void> {
+    const keys = [`achievements:${address}`, `playerSummary:${address}`];
+    await Promise.all(keys.map((k) => this.cache.del(k)));
+    this.cacheMetrics.recordInvalidation('player-update');
+  }
+
+  async invalidateSessionCache(): Promise<void> {
+    const keys = ['sessions:all:0:20'];
+    await Promise.all(keys.map((k) => this.cache.del(k)));
+    this.cacheMetrics.recordInvalidation('session-update');
   }
 }
