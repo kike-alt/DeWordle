@@ -1,0 +1,96 @@
+name: Dependency Vulnerability Scan
+
+on:
+  schedule:
+    # Daily at 06:00 UTC
+    - cron: "0 6 * * *"
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  audit-backend:
+    name: Backend npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Audit backend dependencies
+        run: |
+          cd backend
+          npm audit --audit-level=high --json > audit-report.json || true
+          node -e "
+            const r = require('./audit-report.json');
+            const vulns = r.metadata?.vulnerabilities || {};
+            const critical = vulns.critical || 0;
+            const high = vulns.high || 0;
+            console.log('Critical:', critical, 'High:', high);
+            if (critical > 0 || high > 0) {
+              console.error('High/Critical vulnerabilities found!');
+              process.exit(1);
+            }
+          "
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-audit-report
+          path: backend/audit-report.json
+
+  audit-frontend:
+    name: Frontend npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Audit frontend dependencies
+        run: |
+          cd frontend
+          npm audit --audit-level=high --json > audit-report.json || true
+          node -e "
+            const r = require('./audit-report.json');
+            const vulns = r.metadata?.vulnerabilities || {};
+            const critical = vulns.critical || 0;
+            const high = vulns.high || 0;
+            console.log('Critical:', critical, 'High:', high);
+            if (critical > 0 || high > 0) {
+              console.error('High/Critical vulnerabilities found!');
+              process.exit(1);
+            }
+          "
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-audit-report
+          path: frontend/audit-report.json
+
+  dependabot:
+    name: Dependabot configuration check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify dependabot.yml exists
+        run: |
+          if [ ! -f ".github/dependabot.yml" ]; then
+            echo "Warning: .github/dependabot.yml not found"
+          else
+            echo "✅ dependabot.yml present"
+          fi
