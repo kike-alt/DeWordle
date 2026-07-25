@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type Repository } from 'typeorm';
 import { LeaderboardEntry } from './leaderboard-entry.entity';
@@ -18,9 +22,17 @@ export class LeaderboardService {
       return;
     }
     try {
-      let entry = await this.leaderboardRepository.findOne({ where: { user, game } });
+      let entry = await this.leaderboardRepository.findOne({
+        where: { user, game },
+      });
       if (!entry) {
-        entry = this.leaderboardRepository.create({ user, game, totalScore: score, wins: win ? 1 : 0, totalSessions: 1 });
+        entry = this.leaderboardRepository.create({
+          user,
+          game,
+          totalScore: score,
+          wins: win ? 1 : 0,
+          totalSessions: 1,
+        });
       } else {
         entry.totalScore += score;
         entry.wins += win ? 1 : 0;
@@ -43,13 +55,16 @@ export class LeaderboardService {
         relations: ['user'],
       });
     } catch {
-      throw new InternalServerErrorException('Could not fetch game leaderboard');
+      throw new InternalServerErrorException(
+        'Could not fetch game leaderboard',
+      );
     }
   }
 
   async getGlobalLeaderboard(skip = 0, take = 20) {
     try {
-      const qb = this.leaderboardRepository.createQueryBuilder('entry')
+      const qb = this.leaderboardRepository
+        .createQueryBuilder('entry')
         .innerJoin('entry.user', 'user') // Only include entries with a user
         .select('user.id', 'userId')
         .addSelect('SUM(entry.totalScore)', 'totalScore')
@@ -63,7 +78,9 @@ export class LeaderboardService {
         .limit(Math.max(1, Math.min(Number(take), 100)));
       return await qb.getRawMany();
     } catch {
-      throw new InternalServerErrorException('Could not fetch global leaderboard');
+      throw new InternalServerErrorException(
+        'Could not fetch global leaderboard',
+      );
     }
   }
 }

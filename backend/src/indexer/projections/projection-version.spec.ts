@@ -177,7 +177,10 @@ describe('ProjectionMigration — successful migration path', () => {
       },
     };
 
-    const row: Record<string, unknown> = { sessionId: 'sess-003', schemaVersion: 1 };
+    const row: Record<string, unknown> = {
+      sessionId: 'sess-003',
+      schemaVersion: 1,
+    };
     const chain = getMigrationPathWith([v1v2, v2v3], 1, 3);
 
     expect(chain).toHaveLength(2);
@@ -205,14 +208,23 @@ describe('ProjectionMigration — rejected mismatch', () => {
   });
 
   it('a consumer receiving an empty path for a stale row must treat it as a rejected mismatch', () => {
-    const staleRow: Record<string, unknown> = { sessionId: 'sess-999', schemaVersion: 5 };
+    const staleRow: Record<string, unknown> = {
+      sessionId: 'sess-999',
+      schemaVersion: 5,
+    };
     const currentVersion = 7; // hypothetical future version
 
     // No migrations registered at all
-    const path = getMigrationPathWith([], staleRow['schemaVersion'] as number, currentVersion);
+    const path = getMigrationPathWith(
+      [],
+      staleRow['schemaVersion'] as number,
+      currentVersion,
+    );
 
     // Simulate consumer rejection: cannot serve this row
-    const isRejected = path.length === 0 && (staleRow['schemaVersion'] as number) < currentVersion;
+    const isRejected =
+      path.length === 0 &&
+      (staleRow['schemaVersion'] as number) < currentVersion;
     expect(isRejected).toBe(true);
   });
 

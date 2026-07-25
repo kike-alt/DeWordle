@@ -13,7 +13,10 @@ import { Repository, MoreThan } from 'typeorm';
 import { PasswordReset } from './entities/password-reset.entity';
 import { EmailService } from './email.service';
 import { User } from './entities/user.entity';
+import { RefreshTokenService } from './refresh-token.service';
 import * as crypto from 'crypto';
+
+const ACCESS_TOKEN_EXPIRY = '15m';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +29,7 @@ export class AuthService {
     @InjectRepository(PasswordReset)
     private readonly passwordResetRepo: Repository<PasswordReset>,
     private readonly emailService: EmailService,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   /**
@@ -35,14 +39,14 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const standardizedEmail = email.toLowerCase().trim();
     const user = await this.userService.findByEmail(standardizedEmail);
-    
+
     // Mitigate User Enumeration: Instantly return without disclosing system presence
-    if (!user) return; 
+    if (!user) return;
 
     // Generate high-entropy secure source random token signatures
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    
+
     // Harden Lifespan: Restrict expiry window parameters strictly down to 15 minutes
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
@@ -62,7 +66,7 @@ export class AuthService {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${baseUrl}/reset-password?token=${token}`;
     const html = `<p>You requested a password reset. <a href="${resetUrl}">Click here to reset your password</a>. This link will expire in 15 minutes.</p>`;
-    
+
     await this.emailService.sendMail(
       user.email,
       'Password Reset Request',
@@ -76,23 +80,28 @@ export class AuthService {
    */
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    
+
     // Find valid matching unexpired records directly in data storage rows
     const reset = await this.passwordResetRepo.findOne({
-      where: { 
+      where: {
         tokenHash,
-        expiresAt: MoreThan(new Date())
+        expiresAt: MoreThan(new Date()),
       },
       relations: ['user'],
     });
 
     if (!reset) {
-      throw new UnauthorizedException('The password reset link is invalid or has expired.');
+      throw new UnauthorizedException(
+        'The password reset link is invalid or has expired.',
+      );
     }
 
     // Securely update password using high workload iteration pools
-    reset.user.password = await bcrypt.hash(newPassword, this.BCRYPT_SALT_ROUNDS);
-    await this.userService.create(reset.user); 
+    reset.user.password = await bcrypt.hash(
+      newPassword,
+      this.BCRYPT_SALT_ROUNDS,
+    );
+    await this.userService.create(reset.user);
 
     // Replay Protection: Instantly invalidate used entity reference tracking markers
     await this.passwordResetRepo.delete({ id: reset.id });
@@ -101,8 +110,13 @@ export class AuthService {
   /**
    * Signup Orchestrator
    */
-  async signup(signupDto: SignupDto): Promise<{
+  async signup(
+    signupDto: SignupDto,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{
     access_token: string;
+    refresh_token: string;
     user: {
       id: number;
       email: string;
@@ -112,7 +126,8 @@ export class AuthService {
     const { email, password, username } = signupDto;
     const standardizedEmail = email.toLowerCase().trim();
 
-    const existingByEmail = await this.userService.findByEmail(standardizedEmail);
+    const existingByEmail =
+      await this.userService.findByEmail(standardizedEmail);
     if (existingByEmail) {
       throw new ConflictException('Email already exists');
     }
@@ -130,10 +145,18 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    const token = this.generateToken(newUser.id, newUser.email);
+    const access_token = this.generateAccessToken(newUser.id, newUser.email);
+    const { token: refresh_token } =
+      await this.refreshTokenService.generateRefreshToken(
+        newUser.email,
+        newUser.id,
+        userAgent,
+        ipAddress,
+      );
 
     return {
-      access_token: token,
+      access_token,
+      refresh_token,
       user: {
         id: newUser.id,
         email: newUser.email,
@@ -145,8 +168,13 @@ export class AuthService {
   /**
    * Credential Verification & Sign-In Processing Engine
    */
-  async login(loginDto: LoginDto): Promise<{
+  async login(
+    loginDto: LoginDto,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{
     access_token: string;
+    refresh_token: string;
     user: {
       id: number;
       email: string;
@@ -166,10 +194,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const token = this.generateToken(user.id, user.email);
+    const access_token = this.generateAccessToken(user.id, user.email);
+    const { token: refresh_token } =
+      await this.refreshTokenService.generateRefreshToken(
+        user.email,
+        user.id,
+        userAgent,
+        ipAddress,
+      );
 
     return {
-      access_token: token,
+      access_token,
+      refresh_token,
       user: {
         id: user.id,
         email: user.email,
@@ -200,10 +236,52 @@ export class AuthService {
   }
 
   /**
+   * Token Refresh Handler
+   */
+  async refreshTokens(
+    refreshToken: string,
+    userAgent?: string,
+    ipAddress?: string,
+  ): Promise<{ access_token: string; refresh_token: string }> {
+    const tokenData =
+      await this.refreshTokenService.validateRefreshToken(refreshToken);
+
+    const { token: newRefreshToken } =
+      await this.refreshTokenService.rotateRefreshToken(
+        refreshToken,
+        tokenData.walletAddress,
+        tokenData.user.id,
+        userAgent,
+        ipAddress,
+      );
+
+    const access_token = this.generateAccessToken(
+      tokenData.user.id,
+      tokenData.user.email,
+    );
+
+    return { access_token, refresh_token: newRefreshToken };
+  }
+
+  /**
+   * Logout Handler
+   */
+  async logout(refreshToken: string): Promise<void> {
+    await this.refreshTokenService.revokeRefreshToken(refreshToken);
+  }
+
+  /**
+   * Get Active Sessions
+   */
+  async getSessions(walletAddress: string) {
+    return this.refreshTokenService.getActiveSessions(walletAddress);
+  }
+
+  /**
    * Internal Signature Factory Methods
    */
-  private generateToken(userId: number, email: string): string {
+  private generateAccessToken(userId: number, email: string): string {
     const payload = { sub: userId, email };
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, { expiresIn: ACCESS_TOKEN_EXPIRY });
   }
 }

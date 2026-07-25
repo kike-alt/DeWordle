@@ -1,5 +1,10 @@
 import { Controller, Get, Query, Param, ParseIntPipe } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuditTrailService } from './audit-trail.service';
 import { AuditTrailEntity, AuditAction } from './entities/audit-trail.entity';
 

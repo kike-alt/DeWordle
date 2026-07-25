@@ -70,7 +70,9 @@ describe('RewardSummaryService', () => {
   });
 
   it('calculates pendingClaim as accrued minus claimed', async () => {
-    repo.find.mockResolvedValue([makeSession({ attemptsUsed: 2, status: 'Won' })]);
+    repo.find.mockResolvedValue([
+      makeSession({ attemptsUsed: 2, status: 'Won' }),
+    ]);
     const result = await service.getForPlayer('testnet', 'GABC');
     expect(result.pendingClaim).toBe(result.accrued - result.claimed);
   });

@@ -58,7 +58,10 @@ describe('RegistrySnapshotService', () => {
     });
 
     it('updates existing snapshot on second save', async () => {
-      const existing: Partial<RegistrySnapshotEntity> = { id: 5, capturedAtLedger: 50 };
+      const existing: Partial<RegistrySnapshotEntity> = {
+        id: 5,
+        capturedAtLedger: 50,
+      };
       repo.findOne.mockResolvedValue(existing);
 
       await service.save({

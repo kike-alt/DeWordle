@@ -15,6 +15,8 @@ export class WalletRateLimitGuard extends ThrottlerGuard {
   }
 
   protected throwThrottlingException(): never {
-    throw new ThrottlerException('Rate limit exceeded. Please try again later.');
+    throw new ThrottlerException(
+      'Rate limit exceeded. Please try again later.',
+    );
   }
 }

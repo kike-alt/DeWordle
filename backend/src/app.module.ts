@@ -20,6 +20,9 @@ import { IndexerModule } from './indexer/indexer.module';
 import { ReadApiController } from './common/read-api.controller';
 import { DeprecationController } from './common/deprecation.controller';
 import { WalletRateLimitGuard } from './common/rate-limit.guard';
+import { AppCacheModule } from './common/cache.module';
+import { CacheLoggerService } from './common/cache-logger.service';
+import { VersioningModule } from './common/versioning.module';
 
 @Module({
   imports: [
@@ -34,16 +37,31 @@ import { WalletRateLimitGuard } from './common/rate-limit.guard';
       useFactory: (configService: ConfigService) => ({
         throttlers: [
           {
-            ttl: Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) * 1000,
-            limit: Number.parseInt(configService.get('RATE_LIMIT_AUTH') ?? '5', 10),
+            ttl:
+              Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) *
+              1000,
+            limit: Number.parseInt(
+              configService.get('RATE_LIMIT_AUTH') ?? '5',
+              10,
+            ),
           },
           {
-            ttl: Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) * 1000,
-            limit: Number.parseInt(configService.get('RATE_LIMIT_GAME_SESSIONS') ?? '30', 10),
+            ttl:
+              Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) *
+              1000,
+            limit: Number.parseInt(
+              configService.get('RATE_LIMIT_GAME_SESSIONS') ?? '30',
+              10,
+            ),
           },
           {
-            ttl: Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) * 1000,
-            limit: Number.parseInt(configService.get('RATE_LIMIT_READ_API') ?? '100', 10),
+            ttl:
+              Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) *
+              1000,
+            limit: Number.parseInt(
+              configService.get('RATE_LIMIT_READ_API') ?? '100',
+              10,
+            ),
           },
         ],
       }),
@@ -81,10 +99,18 @@ import { WalletRateLimitGuard } from './common/rate-limit.guard';
     WordsModule,
     MetricsModule,
     IndexerModule,
+    AppCacheModule,
+    VersioningModule,
   ],
-  controllers: [AppController, MetricsController, ReadApiController, DeprecationController],
+  controllers: [
+    AppController,
+    MetricsController,
+    ReadApiController,
+    DeprecationController,
+  ],
   providers: [
     AppService,
+    CacheLoggerService,
     {
       provide: 'APP_GUARD',
       useClass: WalletRateLimitGuard,

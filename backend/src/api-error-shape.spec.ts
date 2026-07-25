@@ -49,7 +49,20 @@ function makeController(
     count: async () => rows.length,
   } as unknown as Repository<SessionProjectionEntity>;
 
-  return new ReadApiController(repo);
+  const mockCache = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  } as unknown as any;
+
+  const mockCacheLogger = {
+    hit: jest.fn(),
+    miss: jest.fn(),
+    set: jest.fn(),
+    invalidation: jest.fn(),
+  } as unknown as any;
+
+  return new ReadApiController(repo, mockCache, mockCacheLogger);
 }
 
 // ---------------------------------------------------------------------------
@@ -179,12 +192,18 @@ describe('Read-API error-shape contract', () => {
     });
 
     it('accepts error body without optional "error" key', () => {
-      expect(isValidErrorShape({ statusCode: 400, message: 'Bad request' })).toBe(true);
+      expect(
+        isValidErrorShape({ statusCode: 400, message: 'Bad request' }),
+      ).toBe(true);
     });
 
     it('accepts error body with array message (ValidationPipe format)', () => {
       expect(
-        isValidErrorShape({ statusCode: 422, message: ['field must be string'], error: 'Unprocessable Entity' }),
+        isValidErrorShape({
+          statusCode: 422,
+          message: ['field must be string'],
+          error: 'Unprocessable Entity',
+        }),
       ).toBe(true);
     });
 

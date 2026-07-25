@@ -57,7 +57,9 @@ export class EnrichedWordsProvider {
     return word;
   }
 
-  private async enrichWord(text: string): Promise<Record<string, unknown> | null> {
+  private async enrichWord(
+    text: string,
+  ): Promise<Record<string, unknown> | null> {
     try {
       const response = await axios.get<Record<string, unknown>>(
         `https://external-dict-api/${text}`,

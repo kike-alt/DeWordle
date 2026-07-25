@@ -54,7 +54,10 @@ describe('QA-217: RewardSummaryService — performance smoke benchmarks', () => 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RewardSummaryService,
-        { provide: getRepositoryToken(SessionProjectionEntity), useValue: repo },
+        {
+          provide: getRepositoryToken(SessionProjectionEntity),
+          useValue: repo,
+        },
       ],
     }).compile();
     service = module.get(RewardSummaryService);

@@ -38,11 +38,11 @@ export class IsSafeRpcUrlConstraint implements ValidatorConstraintInterface {
       if (env === NodeEnv.Production || env === NodeEnv.Test) {
         return url.protocol === 'https:';
       }
-      
+
       if (url.protocol === 'http:') {
         return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
       }
-      
+
       return url.protocol === 'https:';
     } catch {
       return false;

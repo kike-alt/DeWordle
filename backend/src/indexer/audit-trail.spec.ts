@@ -65,7 +65,12 @@ describe('AuditTrailService', () => {
 
     it('should default actor to system', async () => {
       const input = { action: AuditAction.PAUSE };
-      const createdEntity = { id: 2, ...input, actor: 'system', createdAt: new Date() };
+      const createdEntity = {
+        id: 2,
+        ...input,
+        actor: 'system',
+        createdAt: new Date(),
+      };
       mockRepo.create.mockReturnValue(createdEntity);
       mockRepo.save.mockResolvedValue(createdEntity);
 
@@ -132,7 +137,10 @@ describe('AuditTrailService', () => {
 
   describe('findById', () => {
     it('should find an entry by id', async () => {
-      const entity = { id: 1, action: AuditAction.CURSOR_RESET } as AuditTrailEntity;
+      const entity = {
+        id: 1,
+        action: AuditAction.CURSOR_RESET,
+      } as AuditTrailEntity;
       mockRepo.findOne.mockResolvedValue(entity);
 
       const result = await service.findById(1);

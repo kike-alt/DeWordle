@@ -63,7 +63,12 @@ describe('IndexerController', () => {
 
   it('logs audit entry on cursor reset', async () => {
     const req = { user: { walletAddress: 'GBTEST123' } };
-    await controller.resetCursor('testnet', 'core_game_events', 'true', req as any);
+    await controller.resetCursor(
+      'testnet',
+      'core_game_events',
+      'true',
+      req as any,
+    );
 
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -72,14 +77,25 @@ describe('IndexerController', () => {
         network: 'testnet',
       }),
     );
-    expect(indexerService.resetCursor).toHaveBeenCalledWith('testnet', 'core_game_events');
+    expect(indexerService.resetCursor).toHaveBeenCalledWith(
+      'testnet',
+      'core_game_events',
+    );
   });
 
   it('does not reset cursor when confirm is not true', async () => {
     const req = { user: { walletAddress: 'GBTEST123' } };
-    const result = await controller.resetCursor('testnet', 'core_game_events', 'false', req as any);
+    const result = await controller.resetCursor(
+      'testnet',
+      'core_game_events',
+      'false',
+      req as any,
+    );
 
-    expect(result).toEqual({ status: 'refused', reason: 'confirm=true required' });
+    expect(result).toEqual({
+      status: 'refused',
+      reason: 'confirm=true required',
+    });
     expect(indexerService.resetCursor).not.toHaveBeenCalled();
   });
 

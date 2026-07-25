@@ -94,10 +94,12 @@ describe('verifyAuditEventHash', () => {
   it('returns false when any field differs from the stored hash', () => {
     const stored = computeAuditEventHash(base);
     expect(verifyAuditEventHash({ ...base, ledger: 99 }, stored)).toBe(false);
-    expect(verifyAuditEventHash({ ...base, txHash: 'tampered' }, stored)).toBe(false);
-    expect(
-      verifyAuditEventHash({ ...base, payload: { a: 999 } }, stored),
-    ).toBe(false);
+    expect(verifyAuditEventHash({ ...base, txHash: 'tampered' }, stored)).toBe(
+      false,
+    );
+    expect(verifyAuditEventHash({ ...base, payload: { a: 999 } }, stored)).toBe(
+      false,
+    );
   });
 
   it('returns false when storedHash is null', () => {

@@ -72,7 +72,10 @@ export class IndexerController {
       return { status: 'refused', reason: 'confirm=true required' };
     }
 
-    const actor = (req.user as any)?.walletAddress ?? (req.user as any)?.email ?? 'unknown';
+    const user = req.user as
+      | { walletAddress?: string; email?: string }
+      | undefined;
+    const actor = user?.walletAddress ?? user?.email ?? 'unknown';
 
     await this.auditService.log({
       action: AuditAction.CURSOR_RESET,
@@ -113,7 +116,10 @@ export class IndexerController {
       return { status: 'refused', reason: 'confirm=true required' };
     }
 
-    const actor = (req.user as any)?.walletAddress ?? (req.user as any)?.email ?? 'unknown';
+    const user = req.user as
+      | { walletAddress?: string; email?: string }
+      | undefined;
+    const actor = user?.walletAddress ?? user?.email ?? 'unknown';
 
     await this.auditService.log({
       action: AuditAction.PROJECTIONS_RESET,
