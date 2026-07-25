@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { validateEnv } from './config/env.validation';
 import { AppController } from './app.controller';
@@ -18,6 +19,7 @@ import { MetricsController } from './dewordle/metrics/metrics.controller';
 import { IndexerModule } from './indexer/indexer.module';
 import { ReadApiController } from './common/read-api.controller';
 import { DeprecationController } from './common/deprecation.controller';
+import { WalletRateLimitGuard } from './common/rate-limit.guard';
 
 @Module({
   imports: [
@@ -25,6 +27,26 @@ import { DeprecationController } from './common/deprecation.controller';
       isGlobal: true,
       envFilePath: ['.env', '.env.development'],
       validate: validateEnv,
+    }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) * 1000,
+            limit: Number.parseInt(configService.get('RATE_LIMIT_AUTH') ?? '5', 10),
+          },
+          {
+            ttl: Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) * 1000,
+            limit: Number.parseInt(configService.get('RATE_LIMIT_GAME_SESSIONS') ?? '30', 10),
+          },
+          {
+            ttl: Number.parseInt(configService.get('RATE_LIMIT_TTL') ?? '60', 10) * 1000,
+            limit: Number.parseInt(configService.get('RATE_LIMIT_READ_API') ?? '100', 10),
+          },
+        ],
+      }),
     }),
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
@@ -61,6 +83,12 @@ import { DeprecationController } from './common/deprecation.controller';
     IndexerModule,
   ],
   controllers: [AppController, MetricsController, ReadApiController, DeprecationController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: 'APP_GUARD',
+      useClass: WalletRateLimitGuard,
+    },
+  ],
 })
 export class AppModule {}

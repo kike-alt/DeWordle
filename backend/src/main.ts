@@ -2,6 +2,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { RateLimitHeadersInterceptor } from './common/rate-limit-headers.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -9,8 +10,6 @@ async function bootstrap() {
   try {
     const app = await NestFactory.create(AppModule);
 
-    // Restrict CORS to the configured frontend origin.
-    // In development FRONTEND_URL defaults to http://localhost:3000.
     const allowedOrigin = process.env.FRONTEND_URL ?? 'http://localhost:3000';
     app.enableCors({
       origin: allowedOrigin,
@@ -24,6 +23,8 @@ async function bootstrap() {
         transform: true,
       }),
     );
+
+    app.useGlobalInterceptors(new RateLimitHeadersInterceptor());
 
     app.setGlobalPrefix('api/v1');
 
