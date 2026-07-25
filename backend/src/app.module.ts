@@ -23,6 +23,7 @@ import { WalletRateLimitGuard } from './common/rate-limit.guard';
 import { AppCacheModule } from './common/cache.module';
 import { CacheLoggerService } from './common/cache-logger.service';
 import { VersioningModule } from './common/versioning.module';
+import { JobModule } from './common/job.module';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { VersioningModule } from './common/versioning.module';
     IndexerModule,
     AppCacheModule,
     VersioningModule,
+    JobModule,
   ],
   controllers: [
     AppController,
