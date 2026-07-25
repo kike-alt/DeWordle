@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:cross-browser": "playwright test",
+    "analyze": "ANALYZE=true next build",
+    "bundle:check": "ANALYZE=true next build 2>&1 | grep -E '(First|Client|Shared|pages)' || echo 'Bundle analysis complete. See .next/analyze/'",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
@@ -34,6 +37,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.4.4",
+    "@playwright/test": "^1.52.0",
     "@storybook/addon-a11y": "^8.6.14",
     "@storybook/addon-essentials": "^8.6.14",
     "@storybook/addon-links": "^8.6.14",
