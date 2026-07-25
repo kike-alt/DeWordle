@@ -191,7 +191,7 @@ export function SessionResultCard({ result, onShare }: SessionResultCardProps) {
           won={won}
           guessCount={guessCount}
           streak={streak}
-          kind={kind === "interrupted" ? "daily" : kind}
+          kind={kind}
           date={date}
         />
       )}
