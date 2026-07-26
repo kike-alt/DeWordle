@@ -1,64 +1,44 @@
 /**
- * PERF-101: Real User Monitoring (RUM) for production performance tracking.
+ * PERF-101: Real User Monitoring (RUM) using web-vitals.
+ * Collects Core Web Vitals and reports them via sendBeacon.
  *
- * Collects Core Web Vitals (LCP, CLS, FID/INP, TTFB, FCP) and reports them
- * to the configured analytics endpoint or a custom collector.
- *
- * Usage in app/layout.tsx:
- *   import { initRUM } from '@/lib/rum';
- *   if (typeof window !== 'undefined') initRUM();
+ * Install: npm install web-vitals
+ * Usage: import { initRUM } from '@/lib/rum'; initRUM();
  */
 
-export interface RUMMetric {
+type MetricReport = {
   name: string;
   value: number;
-  rating: 'good' | 'needs-improvement' | 'poor';
-  navigationType: string;
-}
+  rating: string;
+  delta: number;
+  id: string;
+};
 
-const ENDPOINT = process.env.NEXT_PUBLIC_RUM_ENDPOINT;
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? 'unknown';
+const ENDPOINT = process.env.NEXT_PUBLIC_RUM_ENDPOINT ?? '/api/rum';
 
-function sendMetric(metric: RUMMetric): void {
-  const payload = {
+function sendToAnalytics(metric: MetricReport): void {
+  if (!navigator.sendBeacon) return;
+  const body = JSON.stringify({
     ...metric,
-    appVersion: APP_VERSION,
     url: window.location.href,
     userAgent: navigator.userAgent,
     timestamp: Date.now(),
-  };
-
-  // Use sendBeacon for reliable delivery on page unload
-  if (ENDPOINT && navigator.sendBeacon) {
-    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-    navigator.sendBeacon(ENDPOINT, blob);
-  } else if (ENDPOINT) {
-    fetch(ENDPOINT, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-    }).catch(() => {
-      // RUM failures must never surface to users
-    });
-  }
-
-  // Always log to console in dev for local inspection
-  if (process.env.NODE_ENV === 'development') {
-    console.info(`[RUM] ${metric.name}: ${metric.value.toFixed(1)} ms (${metric.rating})`);
-  }
+  });
+  navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }));
 }
 
-export async function initRUM(): Promise<void> {
-  try {
-    const { onCLS, onFCP, onINP, onLCP, onTTFB } = await import('web-vitals');
-
-    onLCP(sendMetric);
-    onCLS(sendMetric);
-    onINP(sendMetric);
-    onFCP(sendMetric);
-    onTTFB(sendMetric);
-  } catch {
-    // web-vitals not installed — degrade silently
-  }
+export function initRUM(): void {
+  if (typeof window === 'undefined') return;
+  // Dynamic import to avoid compile-time errors when web-vitals is not installed
+  import('web-vitals')
+    .then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
+      onCLS((m) => sendToAnalytics(m as unknown as MetricReport));
+      onFID((m) => sendToAnalytics(m as unknown as MetricReport));
+      onFCP((m) => sendToAnalytics(m as unknown as MetricReport));
+      onLCP((m) => sendToAnalytics(m as unknown as MetricReport));
+      onTTFB((m) => sendToAnalytics(m as unknown as MetricReport));
+    })
+    .catch(() => {
+      // web-vitals not installed — RUM disabled
+    });
 }
