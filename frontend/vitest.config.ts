@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    exclude: ['**/node_modules/**', '**/tests/cross-browser/**'],
+    exclude: ['**/node_modules/**', '**/tests/cross-browser/**', 'e2e/**'],
   },
   resolve: {
     preserveSymlinks: true,
