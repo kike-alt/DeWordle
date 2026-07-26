@@ -1,0 +1,88 @@
+name: Dependency Vulnerability Scan
+
+on:
+  schedule:
+    # Daily at 06:00 UTC
+    - cron: "0 6 * * *"
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  audit-backend:
+    name: Backend npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Audit backend dependencies
+        run: |
+          cd backend
+          npm audit --json > audit-report.json || true
+          node -e "
+            const r = require('./audit-report.json');
+            const v = r.metadata?.vulnerabilities || {};
+            console.log('Vulnerabilities:', JSON.stringify(v));
+            console.log('Audit complete — review report artifact for remediation.');
+          "
+        continue-on-error: true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-audit-report
+          path: backend/audit-report.json
+
+  audit-frontend:
+    name: Frontend npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Audit frontend dependencies
+        run: |
+          cd frontend
+          npm audit --json > audit-report.json || true
+          node -e "
+            const r = require('./audit-report.json');
+            const v = r.metadata?.vulnerabilities || {};
+            console.log('Vulnerabilities:', JSON.stringify(v));
+            console.log('Audit complete — review report artifact for remediation.');
+          "
+        continue-on-error: true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-audit-report
+          path: frontend/audit-report.json
+
+  dependabot:
+    name: Dependabot configuration check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify dependabot.yml exists
+        run: |
+          if [ ! -f ".github/dependabot.yml" ]; then
+            echo "Warning: .github/dependabot.yml not found"
+          else
+            echo "✅ dependabot.yml present"
+          fi
