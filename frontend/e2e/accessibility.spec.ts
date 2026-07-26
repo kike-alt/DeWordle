@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Accessibility audit', () => {
   test('home page has skip-to-content link', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Verify skip link is present and focusable
     const skipLink = page.locator('a[href="#main-content"], a:has-text("Skip")').first();
     // Page should render without JS errors
@@ -20,7 +20,7 @@ test.describe('Accessibility audit', () => {
 
   test('game page has accessible heading structure', async ({ page }) => {
     await page.goto('/game');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Page must have at least one heading
     const headings = page.locator('h1, h2, h3');
     const count = await headings.count();
@@ -29,7 +29,7 @@ test.describe('Accessibility audit', () => {
 
   test('game board letter tiles have accessible roles', async ({ page }) => {
     await page.goto('/game');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Page renders without critical errors
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
@@ -39,7 +39,7 @@ test.describe('Accessibility audit', () => {
 
   test('leaderboard has accessible table or list structure', async ({ page }) => {
     await page.goto('/leaderboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
     await page.waitForTimeout(500);
