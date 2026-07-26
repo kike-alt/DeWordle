@@ -1,25 +1,18 @@
 /**
- * PERF-101: Real User Monitoring (RUM) using web-vitals.
- * Collects Core Web Vitals and reports them via sendBeacon.
+ * PERF-101: Real User Monitoring (RUM) using native PerformanceObserver.
+ * Collects Core Web Vitals (LCP, CLS, FID, FCP, TTFB) and reports via sendBeacon.
  *
- * Install: npm install web-vitals
- * Usage: import { initRUM } from '@/lib/rum'; initRUM();
+ * No external dependencies — uses the browser's built-in Performance APIs.
+ * Usage: call initRUM() once in your root layout or _app.
  */
-
-type MetricReport = {
-  name: string;
-  value: number;
-  rating: string;
-  delta: number;
-  id: string;
-};
 
 const ENDPOINT = process.env.NEXT_PUBLIC_RUM_ENDPOINT ?? '/api/rum';
 
-function sendToAnalytics(metric: MetricReport): void {
-  if (!navigator.sendBeacon) return;
+function send(name: string, value: number): void {
+  if (typeof navigator === 'undefined' || !navigator.sendBeacon) return;
   const body = JSON.stringify({
-    ...metric,
+    name,
+    value,
     url: window.location.href,
     userAgent: navigator.userAgent,
     timestamp: Date.now(),
@@ -28,17 +21,54 @@ function sendToAnalytics(metric: MetricReport): void {
 }
 
 export function initRUM(): void {
-  if (typeof window === 'undefined') return;
-  // Dynamic import to avoid compile-time errors when web-vitals is not installed
-  import('web-vitals')
-    .then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
-      onCLS((m) => sendToAnalytics(m as unknown as MetricReport));
-      onFID((m) => sendToAnalytics(m as unknown as MetricReport));
-      onFCP((m) => sendToAnalytics(m as unknown as MetricReport));
-      onLCP((m) => sendToAnalytics(m as unknown as MetricReport));
-      onTTFB((m) => sendToAnalytics(m as unknown as MetricReport));
-    })
-    .catch(() => {
-      // web-vitals not installed — RUM disabled
-    });
+  if (typeof window === 'undefined' || !('PerformanceObserver' in window)) return;
+
+  // Largest Contentful Paint
+  try {
+    new PerformanceObserver((list) => {
+      const entries = list.getEntries();
+      const last = entries[entries.length - 1] as PerformanceEntry & { startTime: number };
+      if (last) send('LCP', last.startTime);
+    }).observe({ type: 'largest-contentful-paint', buffered: true });
+  } catch { /* unsupported */ }
+
+  // Cumulative Layout Shift
+  try {
+    let clsValue = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const e = entry as PerformanceEntry & { hadRecentInput: boolean; value: number };
+        if (!e.hadRecentInput) clsValue += e.value;
+      }
+      send('CLS', clsValue);
+    }).observe({ type: 'layout-shift', buffered: true });
+  } catch { /* unsupported */ }
+
+  // First Input Delay
+  try {
+    new PerformanceObserver((list) => {
+      const entry = list.getEntries()[0] as PerformanceEntry & {
+        processingStart: number;
+        startTime: number;
+      };
+      if (entry) send('FID', entry.processingStart - entry.startTime);
+    }).observe({ type: 'first-input', buffered: true });
+  } catch { /* unsupported */ }
+
+  // First Contentful Paint
+  try {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.name === 'first-contentful-paint') {
+          send('FCP', entry.startTime);
+        }
+      }
+    }).observe({ type: 'paint', buffered: true });
+  } catch { /* unsupported */ }
+
+  // Time to First Byte
+  try {
+    const [nav] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    if (nav) send('TTFB', nav.responseStart - nav.requestStart);
+  } catch { /* unsupported */ }
 }
