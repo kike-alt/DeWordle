@@ -33,8 +33,15 @@ jobs:
         run: npm run build
         working-directory: frontend
 
+      - name: Start production server
+        run: npm run start &
+        working-directory: frontend
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 60000
+
       - name: Run Playwright accessibility tests
-        run: npx playwright test e2e/accessibility.spec.ts --reporter=list
+        run: npx playwright test e2e/accessibility.spec.ts --reporter=list --project=chromium
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
