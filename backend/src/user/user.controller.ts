@@ -9,9 +9,10 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
-  UnauthorizedException,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -21,9 +22,11 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
+  ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
+@ApiTags('Users')
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -38,9 +41,15 @@ export class UserController {
     return this.userService.findAll();
   }
 
+  /**
+   * GET /users/:id — returns the user or 404. Merged from the duplicate
+   * findOne + getUserById handlers that previously both mapped to @Get(':id').
+   */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findById(id);
+    if (!user) throw new NotFoundException(`User ${id} not found`);
+    return user;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -65,7 +74,7 @@ export class UserController {
     },
   })
   async updateProfile(
-    @Request() req,
+    @Request() req: ExpressRequest & { user: { id: number } },
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.userService.updateProfile(req.user.id, updateProfileDto);
@@ -80,16 +89,7 @@ export class UserController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
-  }
-
-  @Get(':id')
-  async getUserById(@Param('id', ParseIntPipe) id: number) {
-    const user = await this.userService.getUserById(id);
-    if (!user) {
-      return { message: 'User not found' };
-    }
-    return user;
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.remove(id);
   }
 }

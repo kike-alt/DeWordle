@@ -19,11 +19,11 @@ export class Word {
   word: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any>; 
+  metadata: Record<string, any>;
 
-   @Column({ default: false })
+  @Column({ default: false })
   isEnriched: boolean;
-  
+
   @Column({ nullable: true })
   definition?: string;
 

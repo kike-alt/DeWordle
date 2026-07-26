@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { IngestedEventDto } from '../dto/ingested-event.dto';
 import { IngestedEventEntity } from '../entities/ingested-event.entity';
 import { ProjectionService } from '../projections/projection.service';
+import { AdminRegistryProcessorService } from './admin-registry-processor.service';
 import { IndexerLogContext } from '../indexer.service';
 import { computeAuditEventHash } from '../audit/event-hash';
 
@@ -16,6 +17,7 @@ export class EventProcessorService {
     @InjectRepository(IngestedEventEntity)
     private readonly eventsRepo: Repository<IngestedEventEntity>,
     private readonly projectionService: ProjectionService,
+    private readonly adminRegistryProcessor: AdminRegistryProcessorService,
   ) {}
 
   async process(
@@ -54,6 +56,7 @@ export class EventProcessorService {
 
     await this.eventsRepo.save(this.eventsRepo.create({ ...event, auditHash }));
     await this.projectionService.apply(event, context);
+    this.adminRegistryProcessor.process(event, context);
     return true;
   }
 

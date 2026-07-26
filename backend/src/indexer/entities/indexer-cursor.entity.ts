@@ -8,6 +8,8 @@ import {
 
 @Entity('indexer_cursors')
 @Index(['network', 'streamKey'], { unique: true })
+@Index(['lastLedger'])
+@Index(['updatedAt'])
 export class IndexerCursorEntity {
   @PrimaryGeneratedColumn()
   id: number;

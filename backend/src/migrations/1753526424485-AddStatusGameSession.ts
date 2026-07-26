@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { type MigrationInterface, type QueryRunner } from 'typeorm';
 
 export class AddStatusGameSession1753526424485 implements MigrationInterface {
   name = 'AddStatusGameSession1753526424485';

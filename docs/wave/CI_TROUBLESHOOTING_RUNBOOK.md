@@ -178,12 +178,12 @@ cd soroban && cargo check --workspace
 | Failure not covered by this runbook | Open a DEVOPS issue with full CI log attached |
 | Flaky test confirmed | Open maintenance issue tagged `flaky-test`, link in PR |
 | CI blocked for >24h | Ping maintainer in issue thread |
-| Security-sensitive failure | Follow [SECURITY_FOUNDATION](../SECURITY_FOUNDATION.md) path |
+| Security-sensitive failure | Follow security best practices per repository guidelines |
 
 ---
 
 ## Related Docs
 - [Development Guide](../DEVELOPMENT.md)
+- [Debug Recipe Catalog](../DEBUG_RECIPE_CATALOG.md) - Cross-cutting debug recipes for wallet, RPC, database, and additional CI issues
 - [Soroban Local Dev](../SOROBAN_LOCAL_DEV.md)
 - [Wave 5 Execution Plan](./WAVE5_EXECUTION_PLAN.md)
-- [Security Foundation](../SECURITY_FOUNDATION.md)

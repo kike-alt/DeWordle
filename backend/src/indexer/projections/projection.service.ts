@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { SessionProjectionEntity } from '../entities/session-projection.entity';
 import { IngestedEventDto } from '../dto/ingested-event.dto';
 import { IndexerLogContext } from '../indexer.service';
+import { CURRENT_PROJECTION_VERSION } from './projection-version';
 
 @Injectable()
 export class ProjectionService {
@@ -50,6 +51,7 @@ export class ProjectionService {
       status: this.readStringField(event.payload, 'status', 'Finalized'),
       attemptsUsed: Number(event.payload.attemptsUsed ?? 0),
       finalized: true,
+      schemaVersion: CURRENT_PROJECTION_VERSION,
     });
 
     await this.sessionsRepo.save(projection);

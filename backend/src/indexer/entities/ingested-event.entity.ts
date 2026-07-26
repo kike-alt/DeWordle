@@ -8,6 +8,10 @@ import {
 
 @Entity('ingested_events')
 @Index(['network', 'txHash', 'eventIndex'], { unique: true })
+@Index(['topic'])
+@Index(['ledger'])
+@Index(['createdAt'])
+@Index(['network', 'topic'])
 export class IngestedEventEntity {
   @PrimaryGeneratedColumn()
   id: number;

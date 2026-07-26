@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,6 +29,12 @@ type WalletState = {
   setTxStatus: (status: TxLifecycleStatus) => void;
   signTransaction: (transactionXdr: string) => Promise<string>;
   submitTransaction: (signedTxXdr: string) => Promise<{ hash: string }>;
+  /** Registers a callback that fires whenever the active wallet account changes. */
+  onAccountSwitch: (cb: (newAddress: string) => void) => () => void;
+  /** True when the user can browse publicly without connecting a wallet. */
+  readOnly: boolean;
+  /** Prompts the user to connect if not already connected. Returns true if connected after prompt. */
+  ensureConnected: () => Promise<boolean>;
 };
 
 type WalletKitLike = {
@@ -52,6 +60,48 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | undefined>(undefined);
   const [network, setNetwork] = useState<StellarNetwork>(getDefaultNetwork());
   const [status, setStatus] = useState<TxLifecycleStatus>(defaultStatus);
+
+  // Set of callbacks notified when the active wallet account changes.
+  const switchListenersRef = useRef<Set<(addr: string) => void>>(new Set());
+
+  const onAccountSwitch = useCallback((cb: (newAddress: string) => void) => {
+    switchListenersRef.current.add(cb);
+    return () => switchListenersRef.current.delete(cb);
+  }, []);
+
+  // Poll Freighter for address changes on tab focus / visibility change.
+  // This is the only reliable way to detect Freighter account switches since
+  // the extension doesn't emit DOM events when the user switches accounts.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkForAccountSwitch = async () => {
+      if (!connected) return;
+      const freighter = window.freighterApi;
+      if (!freighter?.getAddress) return;
+
+      try {
+        const response = await freighter.getAddress();
+        if (!response || response.error || !response.address) return;
+        const nextAddress = response.address;
+
+        if (nextAddress !== address) {
+          setAddress(nextAddress);
+          setStatus(defaultStatus);
+          switchListenersRef.current.forEach((cb) => cb(nextAddress));
+        }
+      } catch {
+        // Silently ignore polling errors; they resolve on the next successful poll.
+      }
+    };
+
+    window.addEventListener("focus", checkForAccountSwitch);
+    document.addEventListener("visibilitychange", checkForAccountSwitch);
+    return () => {
+      window.removeEventListener("focus", checkForAccountSwitch);
+      document.removeEventListener("visibilitychange", checkForAccountSwitch);
+    };
+  }, [connected, address]);
 
   const connect = useCallback(async () => {
     if (typeof window === "undefined") {
@@ -146,6 +196,18 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
     [network],
   );
 
+  const readOnly = useMemo(() => !connected, [connected]);
+
+  const ensureConnected = useCallback(async () => {
+    if (connected) return true;
+    try {
+      await connect();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [connected, connect]);
+
   const value = useMemo(
     () => ({
       connected,
@@ -158,6 +220,9 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
       setTxStatus,
       signTransaction,
       submitTransaction,
+      onAccountSwitch,
+      readOnly,
+      ensureConnected,
     }),
     [
       connected,
@@ -170,6 +235,9 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
       setTxStatus,
       signTransaction,
       submitTransaction,
+      onAccountSwitch,
+      readOnly,
+      ensureConnected,
     ],
   );
 

@@ -21,11 +21,16 @@
     "soroban:fmt": "cargo fmt --manifest-path soroban/Cargo.toml --all",
     "bootstrap": "node scripts/contributor-bootstrap.js",
     "bootstrap:json": "node scripts/contributor-bootstrap.js --json",
+    "bootstrap:frontend": "node scripts/contributor-bootstrap.js frontend-only",
+    "bootstrap:indexer": "node scripts/contributor-bootstrap.js indexer-only",
+    "bootstrap:soroban": "node scripts/contributor-bootstrap.js soroban-only",
+    "bootstrap:fullstack": "node scripts/contributor-bootstrap.js full-stack",
     "fixture:sandbox": "node scripts/fixture-sandbox.js",
     "pr:checklist": "node scripts/pr-checklist-commenter.js",
     "backup:projection": "./scripts/backup-projection-data.sh",
     "restore:projection": "./scripts/restore-projection-data.sh",
     "registry:validate": "node scripts/validate-registry-bundle.js",
-    "rpc:proxy": "node scripts/rpc-proxy.js"
+    "rpc:proxy": "node scripts/rpc-proxy.js",
+    "docs:linkcheck": "node scripts/scan-markdown-links.js"
   }
 }

@@ -79,45 +79,38 @@ export class DictionaryHelper {
     }
   }
 
-  /**
-   * Fetches word data from dictionary API with retry logic
-   * @param word - The word to fetch
-   * @returns Promise<any> - API response
-   */
-  private async fetchWithRetry(word: string): Promise<any> {
+  private async fetchWithRetry(
+    word: string,
+  ): Promise<{ data: DictionaryApiResponse[] }> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        const response = await axios.get(
+        const response = await axios.get<DictionaryApiResponse[]>(
           `${this.baseUrl}/${encodeURIComponent(word)}`,
           {
             timeout: this.timeout,
-            headers: {
-              'User-Agent': 'DeWordle-Backend/1.0',
-            },
+            headers: { 'User-Agent': 'DeWordle-Backend/1.0' },
           },
         );
-
         return response;
-      } catch (error: any) {
-        lastError = error as Error;
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
 
-        // Check if it's an axios error by checking for response property
-        if (error.response) {
-          // Don't retry for 404 (word not found) or 4xx client errors
-          if (
-            error.response.status === 404 ||
-            (error.response.status >= 400 && error.response.status < 500)
-          ) {
+        const axiosError = error as {
+          response?: { status: number; headers: Record<string, string> };
+        };
+
+        if (axiosError.response) {
+          const { status } = axiosError.response;
+          if (status === 404 || (status >= 400 && status < 500)) {
             throw error;
           }
 
-          // Handle rate limiting (429)
-          if (error.response.status === 429) {
-            const retryAfter = error.response.headers['retry-after'];
+          if (status === 429) {
+            const retryAfter = axiosError.response.headers['retry-after'];
             const delay = retryAfter
-              ? parseInt(retryAfter) * 1000
+              ? parseInt(retryAfter, 10) * 1000
               : this.calculateBackoffDelay(attempt);
             this.logger.warn(
               `Rate limited. Retrying after ${delay}ms (attempt ${attempt}/${this.maxRetries})`,
@@ -137,7 +130,7 @@ export class DictionaryHelper {
       }
     }
 
-    throw lastError || new Error('Unknown error occurred during API request');
+    throw lastError ?? new Error('Unknown error occurred during API request');
   }
 
   /**

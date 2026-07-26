@@ -152,17 +152,15 @@ describe('IndexerService.poll', () => {
       contractId: 'CABC',
     });
 
-    jest
-      .spyOn(svc, 'fetchEvents')
-      .mockResolvedValue([
-        {
-          contractId: '',
-          topic: 'session_finalized',
-          txHash: 'tx1',
-          ledger: 5,
-          eventIndex: 0,
-        },
-      ]);
+    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
+      {
+        contractId: '',
+        topic: 'session_finalized',
+        txHash: 'tx1',
+        ledger: 5,
+        eventIndex: 0,
+      },
+    ]);
 
     const count = await svc.poll();
     expect(count).toBe(0);
@@ -195,5 +193,73 @@ describe('IndexerService.poll', () => {
       'testnet',
       INDEXER_STREAM_CORE_GAME,
     );
+  });
+
+  it('skips raw events missing required fields and logs a warning', async () => {
+    const { svc, eventProcessor } = makeService({
+      rpcUrl: 'http://rpc',
+      contractId: 'CABC',
+    });
+
+    // One event missing contractId and ledger; one fully valid
+    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
+      { txHash: 'tx1', topic: 'session_finalized', eventIndex: 0 },
+      {
+        contractId: 'CABC',
+        topic: 'session_finalized',
+        txHash: 'tx2',
+        ledger: 5,
+        eventIndex: 0,
+        payload: {},
+      },
+    ]);
+
+    const count = await svc.poll();
+
+    // Only the valid event is ingested
+    expect(count).toBe(1);
+    const calls = (eventProcessor.process as jest.Mock).mock.calls;
+    expect(calls[0][0].txHash).toBe('tx2');
+  });
+
+  it('skips raw events with malformed field types and logs a warning', async () => {
+    const { svc, eventProcessor } = makeService({
+      rpcUrl: 'http://rpc',
+      contractId: 'CABC',
+    });
+
+    // ledger is a string instead of number; eventIndex is a string
+    jest.spyOn(svc, 'fetchEvents').mockResolvedValue([
+      {
+        contractId: 'CABC',
+        topic: 'session_finalized',
+        txHash: 'tx1',
+        ledger: '10',
+        eventIndex: '0',
+        payload: {},
+      },
+    ]);
+
+    const count = await svc.poll();
+    expect(count).toBe(0);
+    expect(eventProcessor.process).not.toHaveBeenCalled();
+  });
+
+  it('skips null/primitive items inside the events array', async () => {
+    const { svc, eventProcessor } = makeService({
+      rpcUrl: 'http://rpc',
+      contractId: 'CABC',
+    });
+
+    jest
+      .spyOn(svc, 'fetchEvents')
+      .mockResolvedValue([
+        null as unknown as Record<string, unknown>,
+        'garbage' as unknown as Record<string, unknown>,
+      ]);
+
+    const count = await svc.poll();
+    expect(count).toBe(0);
+    expect(eventProcessor.process).not.toHaveBeenCalled();
   });
 });

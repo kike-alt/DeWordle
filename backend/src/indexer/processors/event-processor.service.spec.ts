@@ -33,7 +33,13 @@ describe('EventProcessorService', () => {
       create: jest.fn((e) => e),
       save: jest.fn().mockResolvedValue({}),
     };
-    const svc = new EventProcessorService(eventsRepo as any, projectionService);
+    const svc = new EventProcessorService(
+      eventsRepo as any,
+      projectionService,
+      {
+        process: jest.fn(),
+      } as any,
+    );
     return { svc, eventsRepo, projectionService };
   };
 
@@ -84,7 +90,13 @@ describe('EventProcessorService', () => {
     const projectionService = {
       apply: jest.fn().mockResolvedValue(true),
     } as unknown as ProjectionService;
-    const svc = new EventProcessorService(eventsRepo as any, projectionService);
+    const svc = new EventProcessorService(
+      eventsRepo as any,
+      projectionService,
+      {
+        process: jest.fn(),
+      } as any,
+    );
 
     const first = await svc.process(makeEvent());
     const second = await svc.process(makeEvent());
