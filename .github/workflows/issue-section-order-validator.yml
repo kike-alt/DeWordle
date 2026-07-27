@@ -1,0 +1,22 @@
+name: Issue Section-Order Validator
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  validate-sections:
+    name: Validate Issue Section Order
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate issue body section order
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          OUTPUT_JSON: "true"
+        run: node scripts/validate-issue-section-order.js
