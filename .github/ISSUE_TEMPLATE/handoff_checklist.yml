@@ -1,0 +1,48 @@
+name: Issue Handoff Checklist
+description: Checklist for partially completed work to reduce stalled contributor threads
+labels: ["type:handoff", "needs-triage"]
+body:
+  - type: textarea
+    id: original_issue
+    attributes:
+      label: Original Issue
+      description: Link to the original issue being handed off.
+      placeholder: "Closes #<issue-number>"
+    validations:
+      required: true
+  - type: textarea
+    id: current_status
+    attributes:
+      label: Current Status
+      description: What has been completed so far.
+    validations:
+      required: true
+  - type: textarea
+    id: remaining_work
+    attributes:
+      label: Remaining Work
+      description: What still needs to be done.
+    validations:
+      required: true
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blockers
+      description: Any blockers or dependencies preventing completion.
+  - type: textarea
+    id: files_changed
+    attributes:
+      label: Files Changed
+      description: List all files modified or created so far.
+    validations:
+      required: true
+  - type: textarea
+    id: validation_evidence
+    attributes:
+      label: Validation Evidence
+      description: Commands run and outcomes (lint, tests, build).
+  - type: textarea
+    id: context_notes
+    attributes:
+      label: Context Notes
+      description: Any additional context, decisions made, or gotchas.

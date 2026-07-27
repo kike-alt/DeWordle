@@ -56,3 +56,6 @@ The `/onchain/` directory contains outdated legacy code and is no longer maintai
 
 ## Wave Readiness
 Use `docs/WAVE_MIGRATION_ISSUE_CANDIDATES.md` and `docs/SOROBAN_GITHUB_STRATEGY.md` for issue slicing and labels.
+
+## Issue Handoff
+If you need to hand off partially completed work, use the [Issue Handoff Checklist](./.github/ISSUE_TEMPLATE/handoff_checklist.yml) template and follow the [Handoff Process](./docs/wave/HANDOFF_CHECKLIST.md).
