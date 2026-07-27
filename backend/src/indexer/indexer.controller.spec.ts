@@ -9,6 +9,7 @@ describe('IndexerController', () => {
     indexerService = {
       ingest: jest.fn(),
       getLagSnapshot: jest.fn(),
+      getHealthcheck: jest.fn(),
       resetCursor: jest.fn().mockResolvedValue(undefined),
       resetProjections: jest.fn().mockResolvedValue(undefined),
     };
@@ -110,5 +111,46 @@ describe('IndexerController', () => {
       }),
     );
     expect(indexerService.resetProjections).toHaveBeenCalled();
+  });
+
+  it('returns healthcheck with status and queue metadata', () => {
+    indexerService.getHealthcheck.mockReturnValue({
+      status: 'alive',
+      queueDepth: 5,
+      queueMaxSize: 500,
+      secondsSinceLastTick: 8,
+      lastTickAt: '2026-07-27T10:00:00.000Z',
+      ingestedTotal: 1200,
+      projectionErrors: 0,
+    });
+
+    const result = controller.getHealthcheck();
+
+    expect(result).toEqual({
+      status: 'alive',
+      queueDepth: 5,
+      queueMaxSize: 500,
+      secondsSinceLastTick: 8,
+      lastTickAt: '2026-07-27T10:00:00.000Z',
+      ingestedTotal: 1200,
+      projectionErrors: 0,
+    });
+    expect(indexerService.getHealthcheck).toHaveBeenCalled();
+  });
+
+  it('returns stale status when worker has not ticked recently', () => {
+    indexerService.getHealthcheck.mockReturnValue({
+      status: 'stale',
+      queueDepth: 0,
+      queueMaxSize: 500,
+      secondsSinceLastTick: 45,
+      lastTickAt: '2026-07-27T09:55:15.000Z',
+      ingestedTotal: 100,
+      projectionErrors: 0,
+    });
+
+    const result = controller.getHealthcheck();
+
+    expect(result).toHaveProperty('status', 'stale');
   });
 });

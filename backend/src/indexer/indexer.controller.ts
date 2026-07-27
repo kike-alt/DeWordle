@@ -13,6 +13,7 @@ import { Request } from 'express';
 import { IndexerService } from './indexer.service';
 import { IngestedEventDto } from './dto/ingested-event.dto';
 import { IndexerLagResponseDto } from './dto/indexer-lag-response.dto';
+import { IndexerHealthcheckDto } from './dto/indexer-healthcheck.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { AuditTrailService } from './audit-trail.service';
 import { AuditAction } from './entities/audit-trail.entity';
@@ -37,6 +38,20 @@ export class IndexerController {
   })
   async getLag() {
     return this.indexerService.getLagSnapshot();
+  }
+
+  @Get('health')
+  @ApiOperation({
+    summary: 'Indexer healthcheck for queue depth and worker liveness',
+    description:
+      'Returns liveness/readiness signals including queue depth, seconds since last tick, and cumulative error counters for monitoring and load-balancer health probes.',
+  })
+  @ApiOkResponse({
+    description: 'Indexer healthcheck payload.',
+    type: IndexerHealthcheckDto,
+  })
+  getHealthcheck() {
+    return this.indexerService.getHealthcheck();
   }
 
   @Post('ingest')
