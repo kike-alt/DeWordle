@@ -1,0 +1,38 @@
+name: Branch Protection Compliance
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+jobs:
+  check-protection:
+    name: Verify main branch protection matches expectations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check required status checks on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_CHECKS: "lint,typecheck,test"
+        run: |
+          set -euo pipefail
+          actual=$(gh api "repos/${{ github.repository }}/branches/main/protection" \
+            --jq '.required_status_checks.contexts | join(",")' 2>/dev/null || echo "")
+
+          missing=""
+          IFS=',' read -ra expected_arr <<< "$EXPECTED_CHECKS"
+          for check in "${expected_arr[@]}"; do
+            if [[ ",$actual," != *",$check,"* ]]; then
+              missing="$missing $check"
+            fi
+          done
+
+          if [[ -n "$missing" ]]; then
+            echo "::error::Branch protection drift on main. Missing required checks:$missing"
+            echo "Current contexts: $actual"
+            exit 1
+          fi
+
+          echo "Branch protection compliant. Required checks present: $actual"
