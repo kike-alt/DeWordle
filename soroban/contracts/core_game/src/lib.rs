@@ -11,6 +11,8 @@ use soroban_sdk::{
 };
 use soroban_sdk::xdr::ToXdr;
 
+const MAX_ATTEMPTS_LIMIT: u32 = 20;
+
 #[derive(Clone)]
 #[contracttype]
 enum DataKey {
@@ -79,7 +81,7 @@ impl CoreGameContract {
     ) {
         require_admin(&env);
 
-        if max_attempts == 0 {
+        if max_attempts == 0 || max_attempts > MAX_ATTEMPTS_LIMIT {
             panic_with_error!(&env, CoreGameError::InvalidMaxAttempts);
         }
 
@@ -263,7 +265,9 @@ impl CoreGameContract {
         );
         3
     }
+}
 
+impl CoreGameContract {
     fn get_day_config_internal(env: &Env, day_id: u32) -> DayConfig {
         env.storage()
             .persistent()
@@ -373,6 +377,15 @@ mod tests {
         assert!(client.is_paused());
         client.pause(&false);
         assert!(!client.is_paused());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #2)")]
+    fn set_day_config_above_max_attempts_limit_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        let commitment = BytesN::from_array(&env, &[1u8; 32]);
+        client.set_day_config(&1, &commitment, &(MAX_ATTEMPTS_LIMIT + 1), &u64::MAX);
     }
 
     #[test]
