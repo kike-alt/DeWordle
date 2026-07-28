@@ -1,0 +1,23 @@
+name: W5 Milestone Assignment Check
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+jobs:
+  check-milestone:
+    name: Fail on missing milestone for W5 issues
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.title, '[W5]')
+    permissions:
+      issues: write
+    steps:
+      - name: Verify milestone is set
+        if: github.event.issue.milestone == null
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "This is a W5 issue but has no milestone assigned. Please add one to keep wave planning accurate."
+          exit 1
