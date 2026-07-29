@@ -15,8 +15,8 @@ export interface LetterEvaluation {
 /**
  * Evaluates a player's guess against the solution word
  *
- * @param guess - The player's 5-letter guess (case-insensitive)
- * @param solution - The correct 5-letter solution word (case-insensitive)
+ * @param guess - The player's guess (case-insensitive); must match solution length
+ * @param solution - The correct solution word (case-insensitive)
  * @returns Array of LetterEvaluation objects, one for each letter in the guess
  *
  * Status definitions:
@@ -41,10 +41,14 @@ export function evaluateGuess(
   // Normalize inputs to uppercase for consistent comparison
   const normalizedGuess = guess.toUpperCase().trim();
   const normalizedSolution = solution.toUpperCase().trim();
+  const wordLength = normalizedSolution.length;
 
   // Validate inputs
-  if (normalizedGuess.length !== 5 || normalizedSolution.length !== 5) {
-    throw new Error('Both guess and solution must be exactly 5 letters long');
+  if (normalizedGuess.length !== wordLength) {
+    throw new Error(`Guess length (${normalizedGuess.length}) must match solution length (${wordLength})`);
+  }
+  if (wordLength < 1) {
+    throw new Error('Solution must be at least 1 character long');
   }
 
   // Initialize result array with all letters marked as absent
@@ -68,7 +72,7 @@ export function evaluateGuess(
 
   // First pass: Mark all correct letters (exact position matches)
   // This must be done first to ensure correct letters are prioritized
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < wordLength; i++) {
     if (guessLetters[i] === solutionLetters[i]) {
       result[i].status = 'correct';
       // Reduce the available count for this letter
@@ -78,7 +82,7 @@ export function evaluateGuess(
 
   // Second pass: Mark present letters (wrong position)
   // Only check letters that weren't marked as correct
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < wordLength; i++) {
     const guessLetter = guessLetters[i];
 
     // Skip if already marked as correct

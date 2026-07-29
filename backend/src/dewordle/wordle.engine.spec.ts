@@ -113,19 +113,53 @@ describe('Wordle Engine', () => {
       ]);
     });
 
-    it('should throw error for invalid input lengths', () => {
+    it('should throw error for mismatched input lengths', () => {
       expect(() => evaluateGuess('CRAN', 'WORLD')).toThrow(
-        'Both guess and solution must be exactly 5 letters long',
+        'Guess length (4) must match solution length (5)',
       );
       expect(() => evaluateGuess('CRANES', 'WORLD')).toThrow(
-        'Both guess and solution must be exactly 5 letters long',
+        'Guess length (6) must match solution length (5)',
       );
       expect(() => evaluateGuess('CRANE', 'WORL')).toThrow(
-        'Both guess and solution must be exactly 5 letters long',
+        'Guess length (5) must match solution length (4)',
       );
       expect(() => evaluateGuess('CRANE', 'WORLDS')).toThrow(
-        'Both guess and solution must be exactly 5 letters long',
+        'Guess length (5) must match solution length (6)',
       );
+    });
+
+    it('should support 4-letter words', () => {
+      const result = evaluateGuess('WORD', 'WORD');
+      expect(result).toEqual([
+        { letter: 'W', status: 'correct' },
+        { letter: 'O', status: 'correct' },
+        { letter: 'R', status: 'correct' },
+        { letter: 'D', status: 'correct' },
+      ]);
+    });
+
+    it('should support 6-letter words', () => {
+      const result = evaluateGuess('PURPLE', 'PURPLE');
+      expect(result).toEqual([
+        { letter: 'P', status: 'correct' },
+        { letter: 'U', status: 'correct' },
+        { letter: 'R', status: 'correct' },
+        { letter: 'P', status: 'correct' },
+        { letter: 'L', status: 'correct' },
+        { letter: 'E', status: 'correct' },
+      ]);
+    });
+
+    it('should evaluate 6-letter word with partial matches', () => {
+      const result = evaluateGuess('PURPLE', 'TURBAN');
+      expect(result).toEqual([
+        { letter: 'P', status: 'absent' },
+        { letter: 'U', status: 'present' },
+        { letter: 'R', status: 'present' },
+        { letter: 'P', status: 'absent' },
+        { letter: 'L', status: 'absent' },
+        { letter: 'E', status: 'absent' },
+      ]);
     });
   });
 

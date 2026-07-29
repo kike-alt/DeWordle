@@ -162,6 +162,43 @@ assert(
 );
 
 // ---------------------------------------------------------------------------
+// normalizeTxError — contract error code decoding
+// ---------------------------------------------------------------------------
+
+import { normalizeTxError } from "./tx-builder.js";
+
+console.log("normalizeTxError decodes known contract error codes");
+
+const tests: { input: unknown; expectedPrefix: string }[] = [
+  { input: "Simulation failed: Error(Contract, #1)", expectedPrefix: "AlreadyInitialized" },
+  { input: "Simulation failed: Error(Contract, #7)", expectedPrefix: "SessionNotFound" },
+  { input: "Simulation failed: Error(Contract, #14)", expectedPrefix: "ContractPaused" },
+  { input: "Simulation failed: Error(Contract, #99)", expectedPrefix: "Unknown contract error code 99" },
+];
+
+for (const { input, expectedPrefix } of tests) {
+  const result = normalizeTxError(input);
+  assert(
+    result.includes(expectedPrefix),
+    `normalizeTxError("${input}") should include "${expectedPrefix}" — got "${result}"`,
+  );
+}
+
+console.log("normalizeTxError falls through for non-contract errors");
+
+assertEqual(
+  normalizeTxError("Network timeout"),
+  "Network timeout",
+  "plain string passes through",
+);
+
+assertEqual(
+  normalizeTxError(new Error("Some generic error")),
+  "Some generic error",
+  "Error instance passes through",
+);
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

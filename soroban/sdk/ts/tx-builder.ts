@@ -114,16 +114,53 @@ export async function pollTransaction(params: {
 }
 
 /**
+ * Known Soroban contract error codes mapped to human-readable descriptions.
+ * Based on CoreGameError enum in soroban/contracts/core_game/src/lib.rs.
+ */
+const CONTRACT_ERROR_CODES: Record<number, string> = {
+  1: "AlreadyInitialized — contract has already been initialized",
+  2: "InvalidMaxAttempts — max attempts value is out of valid range",
+  3: "DayNotFound — no word set for the current day",
+  4: "DayNotActive — the day window has not started yet",
+  5: "DayClosed — the day window has already closed",
+  6: "NonceAlreadyUsed — this nonce has already been consumed",
+  7: "SessionNotFound — no game session found for the given id",
+  8: "UnauthorizedSessionOwner — caller is not the session owner",
+  9: "SessionAlreadyFinalized — session has already been finalized",
+  10: "AttemptLimitReached — maximum guess attempts have been exhausted",
+  11: "SessionStillInProgress — session has not been finalized yet",
+  13: "InvalidCommitment — the submitted commitment is invalid",
+  14: "ContractPaused — contract operations are currently paused",
+};
+
+/**
  * Normalize a simulation or submission error into a consistent message string.
- * Keeps FE and BE error handling consistent without coupling to wallet types.
+ * Decodes known Soroban contract error codes (e.g. "Error(Contract, #7)")
+ * into human-readable diagnostic messages. Falls back to the raw error string
+ * for unknown codes.
  */
 export function normalizeTxError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
+  let raw: string;
+  if (error instanceof Error) raw = error.message;
+  else if (typeof error === "string") raw = error;
+  else if (error && typeof error === "object" && "message" in error) {
+    raw = String((error as { message: unknown }).message);
+  } else {
+    return "Unknown transaction error";
   }
-  return "Unknown transaction error";
+
+  // Attempt to extract a known contract error code from "Error(Contract, #N)"
+  const match = raw.match(/Error\(Contract,\s*#(\d+)\)/);
+  if (match) {
+    const code = parseInt(match[1], 10);
+    const description = CONTRACT_ERROR_CODES[code];
+    if (description) {
+      return `${raw} — ${description}`;
+    }
+    return `${raw} — Unknown contract error code ${code}`;
+  }
+
+  return raw;
 }
 
 /**
