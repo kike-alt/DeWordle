@@ -20,6 +20,7 @@ pub enum AdminRegistryError {
     NotInitialized = 2,
     Unauthorized = 3,
     MissingContract = 4,
+    AuthorizationFailed = 5,
 }
 
 #[contract]
@@ -80,6 +81,15 @@ impl AdminRegistryContract {
             2u32,
         );
         2
+    }
+
+    pub fn verify_authorized(env: Env, caller: Address) -> Result<(), AdminRegistryError> {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin)
+            .unwrap_or_else(|| panic_with_error!(&env, AdminRegistryError::NotInitialized));
+        if caller != admin {
+            return Err(AdminRegistryError::AuthorizationFailed);
+        }
+        Ok(())
     }
 
     fn require_admin(env: &Env) {
