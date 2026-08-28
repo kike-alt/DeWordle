@@ -54,6 +54,22 @@ pub struct RewardsContract;
 
 #[contractimpl]
 impl RewardsContract {
+    pub fn get_multiplier(env: Env, attempts: u32) -> u32 {
+        if attempts <= 3 {
+            3
+        } else if attempts <= 5 {
+            2
+        } else {
+            1
+        }
+    }
+
+    pub fn verify_signature(env: Env, public_key: soroban_sdk::BytesN<32>, signature: soroban_sdk::BytesN<64>, message: soroban_sdk::Bytes) -> bool {
+        // Enforce strict cryptographic signature checks
+        env.crypto().ed25519_verify(&public_key, &message, &signature);
+        true
+    }
+
     pub fn init(env: Env, admin: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic_with_error!(&env, RewardsError::AlreadyInitialized);
