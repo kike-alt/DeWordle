@@ -73,6 +73,15 @@ impl AchievementsContract {
         env.events().publish((Symbol::new(&env, "achievement_defined"), id), def);
     }
 
+    pub fn batch_verify(env: Env, player: Address, ids: soroban_sdk::Vec<Symbol>) -> soroban_sdk::Vec<bool> {
+        let mut results = soroban_sdk::Vec::new(&env);
+        for id in ids.iter() {
+            let is_unlocked = env.storage().persistent().has(&DataKey::Unlocked(player.clone(), id.clone()));
+            results.push_back(is_unlocked);
+        }
+        results
+    }
+
     pub fn unlock(env: Env, player: Address, id: Symbol, nonce: u64) {
         Self::require_admin(&env);
 
