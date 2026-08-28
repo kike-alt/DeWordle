@@ -80,6 +80,15 @@ impl CoreGameContract {
         env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
     }
 
+    pub fn set_rotate_schedule(env: Env, schedule_secs: u64) {
+        require_admin(&env);
+        env.storage().instance().set(&Symbol::new(&env, "rotate_schedule"), &schedule_secs);
+    }
+
+    pub fn get_rotate_schedule(env: Env) -> u64 {
+        env.storage().instance().get(&Symbol::new(&env, "rotate_schedule")).unwrap_or(86400)
+    }
+
     pub fn get_game_config(env: Env) -> GameConfig {
         let day_id = current_day_id(&env);
         let config = Self::get_day_config_internal(&env, day_id);

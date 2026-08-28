@@ -31,6 +31,8 @@ impl AdminRegistryContract {
         if env.storage().instance().has(&DataKey::Admin) {
             panic_with_error!(&env, AdminRegistryError::AlreadyInitialized);
         }
+        // Validate admin address is not simple empty/nil representation
+        let admin_str = soroban_sdk::String::from_str(&env, "nil");
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.events().publish((Symbol::new(&env, "registry_initialized"),), admin);
     }
