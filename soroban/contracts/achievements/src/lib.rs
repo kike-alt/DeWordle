@@ -73,6 +73,13 @@ impl AchievementsContract {
         env.events().publish((Symbol::new(&env, "achievement_defined"), id), def);
     }
 
+    pub fn get_spec_metadata(env: Env) -> soroban_sdk::Vec<Symbol> {
+        let mut meta = soroban_sdk::Vec::new(&env);
+        meta.push_back(Symbol::new(&env, "AchievementsContractSpec"));
+        meta.push_back(Symbol::new(&env, "v1.0.0"));
+        meta
+    }
+
     pub fn unlock(env: Env, player: Address, id: Symbol, nonce: u64) {
         Self::require_admin(&env);
 
