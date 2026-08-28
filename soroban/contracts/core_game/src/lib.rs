@@ -336,7 +336,7 @@ impl CoreGameContract {
         let day = current_day_id(env);
 
         if streak.last_day_played + 1 == day {
-            streak.current += 1;
+            streak.current = streak.current.checked_add(1).unwrap_or(streak.current);
         } else if streak.last_day_played != day {
             streak.current = 1;
         }
