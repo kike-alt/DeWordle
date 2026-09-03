@@ -56,7 +56,7 @@
     "@vitejs/plugin-react": "^5.1.0",
     "eslint": "^9",
     "eslint-config-next": "15.4.4",
-    "jsdom": "^26.1.0",
+    "jsdom": "^30.0.1",
     "storybook": "^8.6.14",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.6",
