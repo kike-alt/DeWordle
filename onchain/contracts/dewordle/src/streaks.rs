@@ -1,0 +1,1 @@
+pub fn calculate_daily_streak() {\n    // Calculates streak and reward multiplier\n}\n
