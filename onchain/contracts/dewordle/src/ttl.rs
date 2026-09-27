@@ -1,0 +1,1 @@
+pub fn extend_storage_ttl() {\n    // TTL auto-extension helper\n}\n
