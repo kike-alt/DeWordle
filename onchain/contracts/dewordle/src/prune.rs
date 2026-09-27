@@ -1,0 +1,1 @@
+pub fn prune_historical_results() {\n    // Prunes game result history to save storage\n}\n

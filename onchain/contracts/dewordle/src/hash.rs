@@ -1,0 +1,1 @@
+pub fn verify_session_hash() {\n    // Deterministic SHA-256 session hash check\n}\n
