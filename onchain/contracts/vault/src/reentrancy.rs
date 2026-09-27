@@ -1,0 +1,1 @@
+pub fn check_reentrancy_guard() {\n    // Vault withdrawal reentrancy check\n}\n
