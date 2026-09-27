@@ -1,0 +1,1 @@
+pub enum ContractError {\n    GenericError = 1,\n}\n
