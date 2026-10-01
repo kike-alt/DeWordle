@@ -88,7 +88,7 @@
     "@types/opossum": "^8.1.9",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.2.1",
-    "eslint": "^9.18.0",
+    "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
