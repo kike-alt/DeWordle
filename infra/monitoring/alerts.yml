@@ -1,0 +1,11 @@
+groups:
+  - name: postgres-connection-pool
+    rules:
+      - alert: PostgresConnectionPoolHighUsage
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection pool above 80% for 5 minutes"
+          description: "{{ $value | humanizePercentage }} of max_connections in use."
