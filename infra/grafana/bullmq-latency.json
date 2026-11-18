@@ -1,0 +1,20 @@
+{
+  "title": "BullMQ Queue Latency",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "BullMQ job latency percentiles (p50 / p95 / p99)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 9 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "refId": "A", "legendFormat": "p50 {{queue}}", "expr": "histogram_quantile(0.50, sum by (le, queue) (rate(bullmq_job_latency_seconds_bucket[5m])))" },
+        { "refId": "B", "legendFormat": "p95 {{queue}}", "expr": "histogram_quantile(0.95, sum by (le, queue) (rate(bullmq_job_latency_seconds_bucket[5m])))" },
+        { "refId": "C", "legendFormat": "p99 {{queue}}", "expr": "histogram_quantile(0.99, sum by (le, queue) (rate(bullmq_job_latency_seconds_bucket[5m])))" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}
