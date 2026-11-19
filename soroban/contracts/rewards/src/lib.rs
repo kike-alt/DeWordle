@@ -21,6 +21,8 @@ enum DataKey {
     Nonce(Address, u64),
     GamesWon(Address),
     Rank(Address),
+    /// Per-claim payout cap (instance storage); absent or 0 means uncapped.
+    MaxClaimCap,
 }
 
 #[derive(Clone)]
@@ -59,7 +61,7 @@ pub enum RewardsError {
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 2,
-    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
+    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_max_claim_cap\nset_rank\nupdate_metadata\nverify_signature\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -109,6 +111,13 @@ impl RewardsContract {
         env.events().publish((Symbol::new(&env, "emission_set"), day_id), cfg);
     }
 
+    /// Admin-only: caps how much a single `claim` pays out. 0 removes the cap.
+    pub fn set_max_claim_cap(env: Env, cap: u64) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&DataKey::MaxClaimCap, &cap);
+        env.events().publish((Symbol::new(&env, "max_claim_cap_set"),), cap);
+    }
+
     pub fn accrue(env: Env, player: Address, points: u64, nonce: u64, reason: Symbol) {
         Self::require_admin(&env);
         if env
@@ -155,10 +164,17 @@ impl RewardsContract {
         // Payout path: block nested entry while balances are being moved.
         let _guard = ReentrancyGuard::enter(&env);
 
-        let balance = Self::balance_of(env.clone(), player.clone());
+        let full_balance = Self::balance_of(env.clone(), player.clone());
+        // Pay at most the configured cap; the rest stays claimable later.
+        let cap: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::MaxClaimCap)
+            .unwrap_or(0);
+        let balance = if cap > 0 && full_balance > cap { cap } else { full_balance };
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(player.clone()), &0u64);
+            .set(&DataKey::Balance(player.clone()), &(full_balance - balance));
 
         let claimed = Self::claimed_total(env.clone(), player.clone());
         let new_claimed = claimed
@@ -485,5 +501,40 @@ mod tests {
         client.init(&admin);
         let player = Address::generate(&env);
         client.record_win(&player, &1);
+    }
+
+    #[test]
+    fn claim_pays_at_most_the_cap_and_keeps_the_rest() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.set_max_claim_cap(&300);
+        client.accrue(&player, &500, &1, &reason);
+        assert_eq!(client.claim(&player), 300);
+        assert_eq!(client.balance_of(&player), 200);
+        assert_eq!(client.claimed_total(&player), 300);
+    }
+
+    #[test]
+    fn claim_below_the_cap_pays_everything() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        client.set_max_claim_cap(&300);
+        client.accrue(&player, &100, &1, &Symbol::new(&env, "win"));
+        assert_eq!(client.claim(&player), 100);
+        assert_eq!(client.balance_of(&player), 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_admin_cannot_set_the_cap() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let contract_id = env.register(RewardsContract, ());
+        let client = RewardsContractClient::new(&env, &contract_id);
+        client.init(&admin);
+        client.set_max_claim_cap(&10);
     }
 }

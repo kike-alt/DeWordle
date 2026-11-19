@@ -41,6 +41,8 @@ pub enum CoreGameError {
     SessionStillInProgress = 11,
     InvalidCommitment = 13,
     ContractPaused = 14,
+    /// `set_day_config` was given a `closes_at` that is not in the future.
+    InvalidClosesAt = 16,
 }
 
 #[derive(Clone)]
@@ -120,6 +122,11 @@ impl CoreGameContract {
 
         if max_attempts == 0 || max_attempts > MAX_ATTEMPTS_LIMIT {
             panic_with_error!(&env, CoreGameError::InvalidMaxAttempts);
+        }
+
+        // A day that is already closed would lock every player out at once.
+        if closes_at <= env.ledger().timestamp() {
+            panic_with_error!(&env, CoreGameError::InvalidClosesAt);
         }
 
         let config = DayConfig {
@@ -686,6 +693,28 @@ mod tests {
         assert_eq!(event.1.len(), 2);
         assert_eq!(event.1.get(0).unwrap(), Symbol::new(&env, "core_game").into());
         assert_eq!(event.1.get(1).unwrap(), Symbol::new(&env, "paused").into());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #16)")]
+    fn set_day_config_rejects_a_closes_at_in_the_past() {
+        use soroban_sdk::testutils::Ledger;
+        let (env, _, contract_id) = setup();
+        env.ledger().with_mut(|l| l.timestamp = 1_000);
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        let commitment = BytesN::from_array(&env, &[1u8; 32]);
+        client.set_day_config(&1, &commitment, &6, &1_000);
+    }
+
+    #[test]
+    fn set_day_config_accepts_a_future_closes_at() {
+        use soroban_sdk::testutils::Ledger;
+        let (env, _, contract_id) = setup();
+        env.ledger().with_mut(|l| l.timestamp = 1_000);
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        let commitment = BytesN::from_array(&env, &[1u8; 32]);
+        client.set_day_config(&1, &commitment, &6, &1_001);
+        assert_eq!(client.get_day_config(&1).closes_at, 1_001);
     }
 }
 

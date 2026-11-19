@@ -14,6 +14,8 @@ enum DataKey {
     Definition(Symbol),
     Unlocked(Address, Symbol),
     UnlockNonce(Address, u64),
+    /// Number of achievements a player has unlocked.
+    UnlockedCount(Address),
 }
 
 #[derive(Clone)]
@@ -50,7 +52,7 @@ pub enum AchievementsError {
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 2,
-    abi_descriptor: "define\nget_definition\nget_metadata\nget_spec_metadata\nget_unlocked\ninit\nunlock\nupdate_metadata\nversion",
+    abi_descriptor: "define\nget_definition\nget_metadata\nget_spec_metadata\nget_unlocked\nget_unlocked_count\ninit\nunlock\nupdate_metadata\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -71,16 +73,32 @@ impl AchievementsContract {
 
     pub fn define(env: Env, id: Symbol, metric: Symbol, threshold: u32, enabled: bool) {
         Self::require_admin(&env);
+        let is_update = env
+            .storage()
+            .persistent()
+            .has(&DataKey::Definition(id.clone()));
         let def = AchievementDefinition {
             id: id.clone(),
-            metric,
+            metric: metric.clone(),
             threshold,
             enabled,
         };
         env.storage()
             .persistent()
             .set(&DataKey::Definition(id.clone()), &def);
-        env.events().publish((Symbol::new(&env, "achievement_defined"), id), def);
+        env.events()
+            .publish((Symbol::new(&env, "achievement_defined"), id.clone()), def);
+        if is_update {
+            // Lets indexers refresh cached definitions without re-reading state.
+            env.events().publish(
+                (
+                    Symbol::new(&env, "achievement"),
+                    Symbol::new(&env, "definition_updated"),
+                    id,
+                ),
+                (threshold, metric, enabled),
+            );
+        }
     }
 
     pub fn get_spec_metadata(env: Env) -> soroban_sdk::Vec<Symbol> {
@@ -126,6 +144,10 @@ impl AchievementsContract {
         env.storage()
             .persistent()
             .set(&DataKey::UnlockNonce(player.clone(), nonce), &true);
+        let count = Self::get_unlocked_count(env.clone(), player.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::UnlockedCount(player.clone()), &(count + 1));
 
         env.events()
             .publish((Symbol::new(&env, "achievement_unlocked"), player, id), unlock);
@@ -137,6 +159,14 @@ impl AchievementsContract {
 
     pub fn get_unlocked(env: Env, player: Address, id: Symbol) -> Option<AchievementUnlock> {
         env.storage().persistent().get(&DataKey::Unlocked(player, id))
+    }
+
+    /// Number of distinct achievements `player` has unlocked (0 if none).
+    pub fn get_unlocked_count(env: Env, player: Address) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::UnlockedCount(player))
+            .unwrap_or(0)
     }
 
     /// Version, ABI hash and minimum SDK version, for compatibility checks.
@@ -270,5 +300,60 @@ mod tests {
     fn event_topics_match_fixtures() {
         assert_eq!(fixtures::TOPIC_ACHIEVEMENT_DEFINED, "achievement_defined");
         assert_eq!(fixtures::TOPIC_ACHIEVEMENT_UNLOCKED, "achievement_unlocked");
+    }
+
+    #[test]
+    fn unlocked_count_tracks_distinct_unlocks() {
+        let (env, _, contract_id) = setup();
+        let client = AchievementsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        assert_eq!(client.get_unlocked_count(&player), 0);
+        define_achievement(&env, &client, "a");
+        define_achievement(&env, &client, "b");
+        client.unlock(&player, &Symbol::new(&env, "a"), &1);
+        client.unlock(&player, &Symbol::new(&env, "b"), &2);
+        assert_eq!(client.get_unlocked_count(&player), 2);
+        // Other players are unaffected.
+        assert_eq!(client.get_unlocked_count(&Address::generate(&env)), 0);
+    }
+
+    #[test]
+    fn redefining_emits_definition_updated_event() {
+        use soroban_sdk::{testutils::Events, IntoVal, Val, Vec as SorobanVec};
+        let (env, _, contract_id) = setup();
+        let client = AchievementsContractClient::new(&env, &contract_id);
+        define_achievement(&env, &client, "a");
+        client.define(
+            &Symbol::new(&env, "a"),
+            &Symbol::new(&env, "streak"),
+            &9,
+            &false,
+        );
+        let events = env.events().all();
+        let (_, topics, data) = events.last().unwrap();
+        let expected_topics: SorobanVec<Val> = (
+            Symbol::new(&env, "achievement"),
+            Symbol::new(&env, "definition_updated"),
+            Symbol::new(&env, "a"),
+        )
+            .into_val(&env);
+        assert_eq!(topics, expected_topics);
+        let expected_data: Val = (9u32, Symbol::new(&env, "streak"), false).into_val(&env);
+        assert_eq!(data, expected_data);
+    }
+
+    #[test]
+    fn first_definition_does_not_emit_definition_updated() {
+        use soroban_sdk::{testutils::Events, IntoVal, Val, Vec as SorobanVec};
+        let (env, _, contract_id) = setup();
+        let client = AchievementsContractClient::new(&env, &contract_id);
+        define_achievement(&env, &client, "a");
+        let updated: SorobanVec<Val> = (
+            Symbol::new(&env, "achievement"),
+            Symbol::new(&env, "definition_updated"),
+            Symbol::new(&env, "a"),
+        )
+            .into_val(&env);
+        assert!(env.events().all().iter().all(|(_, t, _)| t != updated));
     }
 }
