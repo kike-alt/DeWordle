@@ -21,7 +21,14 @@ enum DataKey {
     Nonce(Address, u64),
     GamesWon(Address),
     Rank(Address),
+    /// Ledger sequence of the player's last claim (temporary storage).
+    LastClaimedLedger(Address),
 }
+
+/// Minimum number of ledgers between two claims by the same player.
+pub const CLAIM_COOLDOWN_LEDGERS: u32 = 100;
+/// Claimants holding more than this balance skip the cooldown.
+pub const CLAIM_COOLDOWN_BYPASS_BALANCE: u64 = 1_000_000;
 
 #[derive(Clone)]
 #[contracttype]
@@ -53,6 +60,8 @@ pub enum RewardsError {
     InvalidNonce = 4,
     /// A balance or lifetime total would exceed `u64::MAX`.
     Overflow = 5,
+    /// The player claimed fewer than `CLAIM_COOLDOWN_LEDGERS` ledgers ago.
+    CooldownActive = 6,
 }
 
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
@@ -156,6 +165,26 @@ impl RewardsContract {
         let _guard = ReentrancyGuard::enter(&env);
 
         let balance = Self::balance_of(env.clone(), player.clone());
+
+        // Cooldown: reject repeat claims within the window unless the
+        // claimant's balance is above the bypass threshold.
+        let cooldown_key = DataKey::LastClaimedLedger(player.clone());
+        if balance <= CLAIM_COOLDOWN_BYPASS_BALANCE {
+            if let Some(last) = env.storage().temporary().get::<_, u32>(&cooldown_key) {
+                if env.ledger().sequence() < last.saturating_add(CLAIM_COOLDOWN_LEDGERS) {
+                    panic_with_error!(&env, RewardsError::CooldownActive);
+                }
+            }
+        }
+        env.storage()
+            .temporary()
+            .set(&cooldown_key, &env.ledger().sequence());
+        env.storage().temporary().extend_ttl(
+            &cooldown_key,
+            CLAIM_COOLDOWN_LEDGERS,
+            CLAIM_COOLDOWN_LEDGERS,
+        );
+
         env.storage()
             .persistent()
             .set(&DataKey::Balance(player.clone()), &0u64);
@@ -485,5 +514,44 @@ mod tests {
         client.init(&admin);
         let player = Address::generate(&env);
         client.record_win(&player, &1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn immediate_second_claim_hits_cooldown() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        client.accrue(&player, &50, &2, &reason);
+        client.claim(&player);
+    }
+
+    #[test]
+    fn claim_allowed_again_after_cooldown_window() {
+        use soroban_sdk::testutils::Ledger;
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        env.ledger().with_mut(|l| l.sequence_number += CLAIM_COOLDOWN_LEDGERS);
+        client.accrue(&player, &25, &2, &reason);
+        assert_eq!(client.claim(&player), 25);
+    }
+
+    #[test]
+    fn large_balance_bypasses_cooldown() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        client.accrue(&player, &(CLAIM_COOLDOWN_BYPASS_BALANCE + 1), &2, &reason);
+        assert_eq!(client.claim(&player), CLAIM_COOLDOWN_BYPASS_BALANCE + 1);
     }
 }
