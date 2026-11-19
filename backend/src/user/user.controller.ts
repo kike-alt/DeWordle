@@ -8,11 +8,15 @@ import {
   Delete,
   UseGuards,
   Request,
+  Res,
   ParseIntPipe,
   HttpStatus,
   NotFoundException,
 } from '@nestjs/common';
-import type { Request as ExpressRequest } from 'express';
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from 'express';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -41,6 +45,19 @@ export class UserController {
   async findAll() {
     // Public listing: no emails or wallet addresses.
     return (await this.userService.findAll()).map(toPublicUserDto);
+  }
+
+  @Get(':address/avatar')
+  async getAvatar(
+    @Param('address') address: string,
+    @Res() res: ExpressResponse,
+  ): Promise<void> {
+    const user = await this.userService.findByWalletAddress(address);
+    if (user?.avatarUrl && this.userService.isSafeAvatarUrl(user.avatarUrl)) {
+      res.redirect(user.avatarUrl);
+      return;
+    }
+    res.type('image/svg+xml').send(this.userService.getAvatarSvg(address));
   }
 
   /**

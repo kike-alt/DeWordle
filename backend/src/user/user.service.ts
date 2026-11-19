@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   Injectable,
   NotFoundException,
@@ -28,9 +29,9 @@ export class UserService {
     return this.userRepository.findOne({ where: { email } });
   }
 
-  // async findByWalletAddress(walletAddress: string): Promise<User | null> {
-  //   return this.userRepository.findOne({ where: { walletAddress } });
-  // }
+  async findByWalletAddress(walletAddress: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { walletAddress } });
+  }
 
   async findByUserName(username: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { username } });
@@ -116,6 +117,28 @@ export class UserService {
         'Error updating user profile: ' + (err?.message || err),
       );
     }
+  }
+
+  isSafeAvatarUrl(url: string): boolean {
+    try {
+      return new URL(url).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  getAvatarSvg(walletAddress: string): string {
+    const digest = createHash('sha256').update(walletAddress).digest();
+    const hue = digest.readUInt16BE(0) % 360;
+    const initials =
+      walletAddress.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
+
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Player avatar">' +
+      `<rect width="64" height="64" rx="32" fill="hsl(${hue}, 60%, 45%)"/>` +
+      `<text x="32" y="32" fill="#ffffff" font-family="sans-serif" font-size="22" font-weight="600" text-anchor="middle" dominant-baseline="central">${initials}</text>` +
+      '</svg>'
+    );
   }
 
   async getUserById(id: number): Promise<User | null> {
