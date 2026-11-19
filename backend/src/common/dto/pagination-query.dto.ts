@@ -17,6 +17,19 @@ export class PaginationQueryDto {
   limit?: number = 20;
 
   @ApiPropertyOptional({
+    description: 'Number of records to skip before returning results',
+    default: 0,
+    minimum: 0,
+    maximum: 10000,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10000)
+  offset?: number = 0;
+
+  @ApiPropertyOptional({
     description: 'Optional filter term applied to results',
   })
   @IsOptional()
