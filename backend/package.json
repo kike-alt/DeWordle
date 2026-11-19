@@ -54,7 +54,7 @@
     "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.0",
-    "cache-manager": "^6.0.0",
+    "cache-manager": "^7.2.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "date-fns": "^4.1.0",
