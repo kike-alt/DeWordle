@@ -1,12 +1,12 @@
 import {
   Controller,
   Get,
-  INestApplication,
   Module,
   NestModule,
   RequestMethod,
   Req,
 } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Request } from 'express';
 import request from 'supertest';
@@ -58,12 +58,11 @@ describe('RequestIdMiddleware integration', () => {
 
     expect(response.headers['x-request-id']).toBe(requestId);
     expect(response.body.requestId).toBe(requestId);
-    expect(
-      log.mock.calls
-        .map(([line]) => String(line))
-        .filter((line) => line.includes('http.request.'))
-        .every((line) => JSON.parse(line).requestId === requestId),
-    ).toBe(true);
+    const requestLogs = log.mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line.includes('http.request.'));
+    expect(requestLogs.length).toBeGreaterThan(0);
+    expect(requestLogs.every((line) => JSON.parse(line).requestId === requestId)).toBe(true);
     log.mockRestore();
   });
 

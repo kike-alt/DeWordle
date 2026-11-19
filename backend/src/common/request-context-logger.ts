@@ -44,11 +44,12 @@ export class RequestContextLogger implements LoggerService {
       ...structured,
       timestamp: new Date().toISOString(),
       level,
-      context: strings.at(-1) ?? structured.context,
+      context: strings[strings.length - 1] ?? structured.context,
       message:
         typeof message === 'string'
           ? message
           : structured.message ?? structured.msg ?? JSON.stringify(message),
+      ...(optionalParams.length > 0 ? { details: optionalParams } : {}),
       requestId:
         requestContextStorage.getStore()?.requestId ?? structured.requestId,
     };

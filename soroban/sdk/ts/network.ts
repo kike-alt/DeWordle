@@ -1,6 +1,7 @@
 import { diagnoseRegistryMismatch, formatRegistryMismatchDiagnostics } from "./registry-diagnostics";
 
-export type NetworkName = "testnet" | "mainnet";
+export type NetworkName = "testnet" | "futurenet" | "mainnet";
+const NETWORK_NAMES: readonly NetworkName[] = ["testnet", "futurenet", "mainnet"];
 
 export interface SorobanNetworkConfig {
   name: NetworkName;
@@ -26,6 +27,12 @@ export const NETWORKS: Record<NetworkName, SorobanNetworkConfig> = {
     passphrase: "Test SDF Network ; September 2015",
     horizonUrl: "https://horizon-testnet.stellar.org",
   },
+  futurenet: {
+    name: "futurenet",
+    rpcUrl: "https://rpc-futurenet.stellar.org",
+    passphrase: "Test SDF Future Network ; October 2022",
+    horizonUrl: "https://horizon-futurenet.stellar.org",
+  },
   mainnet: {
     name: "mainnet",
     rpcUrl: "https://mainnet.sorobanrpc.com",
@@ -45,9 +52,9 @@ export function loadRegistryFromEnv(
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
 ): ContractRegistry {
   const network = env["SOROBAN_NETWORK"] as NetworkName | undefined;
-  if (!network || !["testnet", "mainnet"].includes(network)) {
+  if (!network || !NETWORK_NAMES.includes(network)) {
     throw new Error(
-      `SOROBAN_NETWORK must be "testnet" or "mainnet", got: ${network ?? "(unset)"}`,
+      `SOROBAN_NETWORK must be "testnet", "futurenet", or "mainnet", got: ${network ?? "(unset)"}`,
     );
   }
 
@@ -81,7 +88,7 @@ export function loadRegistryFromJson(json: unknown): ContractRegistry {
   const obj = json as Record<string, unknown>;
   const network = obj["network"] as NetworkName | undefined;
 
-  if (!network || !["testnet", "mainnet"].includes(network)) {
+  if (!network || !NETWORK_NAMES.includes(network)) {
     throw new Error(`Registry JSON: invalid network "${network}"`);
   }
 
@@ -116,7 +123,7 @@ export async function loadRegistryFromProvider(
 ): Promise<ContractRegistry> {
   const registry = await provider();
   // Validate network matches a known value
-  if (!["testnet", "mainnet"].includes(registry.network)) {
+  if (!NETWORK_NAMES.includes(registry.network)) {
     throw new Error(`Registry provider returned invalid network: ${registry.network}`);
   }
   return registry;

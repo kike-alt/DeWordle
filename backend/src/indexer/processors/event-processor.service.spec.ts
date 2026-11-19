@@ -1,3 +1,7 @@
+jest.mock('@nestjs/typeorm', () => ({
+  InjectRepository: () => () => undefined,
+}));
+
 import { EventProcessorService } from './event-processor.service';
 import { ProjectionService } from '../projections/projection.service';
 import { IngestedEventDto } from '../dto/ingested-event.dto';
