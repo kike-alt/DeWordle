@@ -158,3 +158,56 @@ export async function loadContractRegistry(
 
   return registry;
 }
+
+// --- Ledger polling ---
+
+export class LedgerPollTimeoutError extends Error {
+  constructor(
+    readonly targetLedger: number,
+    readonly lastSeenLedger: number | undefined,
+    readonly timeoutMs: number,
+  ) {
+    super(
+      `Timed out after ${timeoutMs}ms waiting for ledger ${targetLedger}` +
+        (lastSeenLedger === undefined ? "" : ` (last seen ${lastSeenLedger})`),
+    );
+    this.name = "LedgerPollTimeoutError";
+  }
+}
+
+export interface PollUntilLedgerOptions {
+  /** Give up after this long (default 30000). */
+  timeoutMs?: number;
+  /** Delay between polls (default 1000). */
+  intervalMs?: number;
+  /** Replaceable for tests. */
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+}
+
+/**
+ * Polls `server.getLatestLedger()` until the latest ledger sequence is at
+ * least `targetLedger`, then resolves with that sequence. Rejects with
+ * `LedgerPollTimeoutError` when the target is not reached in time.
+ */
+export async function pollUntilLedger(
+  server: { getLatestLedger(): Promise<{ sequence: number }> },
+  targetLedger: number,
+  options: PollUntilLedgerOptions = {},
+): Promise<number> {
+  const {
+    timeoutMs = 30_000,
+    intervalMs = 1_000,
+    sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    now = Date.now,
+  } = options;
+  const deadline = now() + timeoutMs;
+  let last: number | undefined;
+
+  for (;;) {
+    last = (await server.getLatestLedger()).sequence;
+    if (last >= targetLedger) return last;
+    if (now() + intervalMs > deadline) throw new LedgerPollTimeoutError(targetLedger, last, timeoutMs);
+    await sleep(intervalMs);
+  }
+}

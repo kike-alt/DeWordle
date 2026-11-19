@@ -1,4 +1,4 @@
-import { Account, Address, Keypair, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
+import { Account, Address, Keypair, hash, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { Server } from "@stellar/stellar-sdk/rpc";
 import type {
   DayConfig,
@@ -203,4 +203,36 @@ export class CoreGameClient {
 
 export function generateEphemeralSigner() {
   return Keypair.random();
+}
+
+/**
+ * Normalizes a word for commitment hashing: Unicode NFKC, lowercase, and
+ * every character outside a-z removed.
+ */
+export function normalizeCommitmentWord(word: string): string {
+  return word.normalize("NFKC").toLowerCase().replace(/[^a-z]/g, "");
+}
+
+/**
+ * Commitment for a puzzle word: SHA-256 over `salt` followed by the UTF-8
+ * bytes of the normalized word. The 32-byte result matches the contract's
+ * `BytesN<32>` commitment parameters.
+ */
+export function hashWordCommitment(word: string, salt: Uint8Array): Uint8Array {
+  const wordBytes = Buffer.from(normalizeCommitmentWord(word), "utf8");
+  return new Uint8Array(hash(Buffer.concat([Buffer.from(salt), wordBytes])));
+}
+
+/** True when `commitment` (bytes or hex) matches the word and salt. */
+export function verifyWordCommitment(
+  word: string,
+  salt: Uint8Array,
+  commitment: Uint8Array | string,
+): boolean {
+  const expected = typeof commitment === "string" ? Buffer.from(commitment, "hex") : Buffer.from(commitment);
+  const actual = Buffer.from(hashWordCommitment(word, salt));
+  if (expected.length !== actual.length) return false;
+  let diff = 0;
+  for (let i = 0; i < actual.length; i++) diff |= actual[i] ^ expected[i];
+  return diff === 0;
 }

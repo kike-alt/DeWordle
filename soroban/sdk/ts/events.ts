@@ -186,3 +186,73 @@ export function resolveEventFamily(
   if (isAdminRegistryEvent(t)) return "admin_registry";
   return "unknown";
 }
+
+// --- Runtime type guards for decoded core_game events ---
+
+export interface GuessResultPayload {
+  attemptNo: number;
+  outcomeCode: number;
+  isCorrect: boolean;
+}
+
+/** `session_started`: payload is the hex session id. */
+export type SessionStartedPayload = string;
+/** `guess_submitted`: the guess commitment plus the guess result. */
+export interface GuessSubmittedPayload {
+  guessCommitment: string;
+  result: GuessResultPayload;
+}
+/** `session_finalized`: payload is the player's address. */
+export type SessionFinalizedPayload = string;
+/** `streak_updated`: the player's streak counters. */
+export interface StreakUpdatedPayload {
+  current: number;
+  max: number;
+  lastDayPlayed: number;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v.length > 0;
+const isUint = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
+const pick = (o: Record<string, unknown>, camel: string, snake: string) => o[camel] ?? o[snake];
+
+function isDecodedEvent(value: unknown, topic: string): value is DecodedEvent {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value["contractId"]) &&
+    typeof value["topic"] === "string" &&
+    normalizeTopic(value["topic"]) === topic &&
+    "payload" in value
+  );
+}
+
+export function isSessionStartedEvent(value: unknown): value is DecodedEvent<SessionStartedPayload> {
+  return isDecodedEvent(value, "session_started") && isNonEmptyString(value.payload);
+}
+
+export function isGuessSubmittedEvent(value: unknown): value is DecodedEvent<GuessSubmittedPayload> {
+  if (!isDecodedEvent(value, "guess_submitted") || !isRecord(value.payload)) return false;
+  const payload = value.payload;
+  const result = payload["result"];
+  return (
+    isNonEmptyString(pick(payload, "guessCommitment", "guess_commitment")) &&
+    isRecord(result) &&
+    isUint(pick(result, "attemptNo", "attempt_no")) &&
+    isUint(pick(result, "outcomeCode", "outcome_code")) &&
+    typeof pick(result, "isCorrect", "is_correct") === "boolean"
+  );
+}
+
+export function isSessionFinalizedEvent(value: unknown): value is DecodedEvent<SessionFinalizedPayload> {
+  return isDecodedEvent(value, "session_finalized") && isNonEmptyString(value.payload);
+}
+
+export function isStreakUpdatedEvent(value: unknown): value is DecodedEvent<StreakUpdatedPayload> {
+  if (!isDecodedEvent(value, "streak_updated") || !isRecord(value.payload)) return false;
+  const payload = value.payload;
+  return (
+    isUint(payload["current"]) &&
+    isUint(payload["max"]) &&
+    isUint(pick(payload, "lastDayPlayed", "last_day_played"))
+  );
+}
