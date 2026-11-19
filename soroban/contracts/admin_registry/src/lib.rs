@@ -24,6 +24,23 @@ pub enum AdminRegistryError {
     Unauthorized = 3,
     MissingContract = 4,
     AuthorizationFailed = 5,
+    /// The address is the all-zero account or contract address.
+    InvalidAddress = 6,
+}
+
+/// StrKey of the all-zero ed25519 account and the all-zero contract id.
+const ZERO_ACCOUNT_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+const ZERO_CONTRACT_ADDRESS: &str = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM";
+
+/// Rejects the zero/dummy account and contract addresses so they can never be
+/// stored as a registered contract or role member.
+pub fn validate_address(env: &Env, address: &Address) {
+    let text = address.to_string();
+    if text == soroban_sdk::String::from_str(env, ZERO_ACCOUNT_ADDRESS)
+        || text == soroban_sdk::String::from_str(env, ZERO_CONTRACT_ADDRESS)
+    {
+        panic_with_error!(env, AdminRegistryError::InvalidAddress);
+    }
 }
 
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
@@ -52,6 +69,7 @@ impl AdminRegistryContract {
 
     pub fn set_contract(env: Env, key: Symbol, contract_address: Address) {
         Self::require_admin(&env);
+        validate_address(&env, &contract_address);
         env.storage()
             .persistent()
             .set(&DataKey::Contract(key.clone()), &contract_address);
@@ -85,6 +103,7 @@ impl AdminRegistryContract {
 
     pub fn set_role(env: Env, role: Symbol, member: Address, enabled: bool) {
         Self::require_admin(&env);
+        validate_address(&env, &member);
         env.storage()
             .persistent()
             .set(&DataKey::Role(role.clone(), member.clone()), &enabled);

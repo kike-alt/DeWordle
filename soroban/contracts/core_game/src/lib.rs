@@ -1,6 +1,7 @@
 #![no_std]
 
 pub mod fixtures;
+pub mod word_dictionary;
 
 use dewordle_auth::{require_admin, set_admin};
 use dewordle_types::{DayConfig, GuessResult, PlayerStreak, Session, SessionStatus};
@@ -100,11 +101,28 @@ impl CoreGameContract {
             .publish((Symbol::new(&env, "core_game"), Symbol::new(&env, "initialized")), admin);
     }
 
-    pub fn pause(env: Env, paused: bool) {
+    /// Pauses or resumes the contract. `reason_code` is stored and emitted
+    /// (for example 1 = Maintenance, 2 = Emergency, 3 = Migration); unpausing
+    /// clears it back to 0.
+    pub fn pause(env: Env, paused: bool, reason_code: u32) {
         require_admin(&env);
+        let stored_reason = if paused { reason_code } else { 0 };
         env.storage().instance().set(&DataKey::Paused, &paused);
-        env.events()
-            .publish((Symbol::new(&env, "core_game"), Symbol::new(&env, "paused")), paused);
+        env.storage().instance().set(&DataKey::PauseReason, &stored_reason);
+        env.events().publish(
+            (Symbol::new(&env, "core_game"), Symbol::new(&env, "paused")),
+            (paused, stored_reason),
+        );
+    }
+
+    /// Reason code of the active pause, or 0 when not paused / none given.
+    pub fn get_pause_reason(env: Env) -> u32 {
+        env.storage().instance().get(&DataKey::PauseReason).unwrap_or(0)
+    }
+
+    /// Merkle root registered for `word_len` (4..=8), if any.
+    pub fn get_word_dictionary_root(env: Env, word_len: u32) -> Option<BytesN<32>> {
+        word_dictionary::get_word_dictionary_root(&env, word_len)
     }
 
     pub fn is_paused(env: Env) -> bool {
@@ -342,6 +360,7 @@ impl CoreGameContract {
             panic_with_error!(&env, CoreGameError::SessionStillInProgress);
         }
 
+        let won = matches!(session.status, SessionStatus::Won);
         session.finalized = true;
         session.status = SessionStatus::Finalized;
         session.updated_at = env.ledger().timestamp();
@@ -349,7 +368,7 @@ impl CoreGameContract {
             .persistent()
             .set(&DataKey::Session(session_id.clone()), &session);
 
-        Self::update_streak(&env, &player);
+        Self::update_streak(&env, &player, won);
 
         // Keep the finalized session and the player's streak from archiving.
         env.storage().persistent().extend_ttl(
@@ -455,8 +474,8 @@ impl CoreGameContract {
         env.crypto().sha256(&preimage_bytes).into()
     }
 
-    fn update_streak(env: &Env, player: &Address) {
-        let mut streak = env
+    fn update_streak(env: &Env, player: &Address, won: bool) {
+        let before = env
             .storage()
             .persistent()
             .get(&DataKey::Streak(player.clone()))
@@ -465,20 +484,38 @@ impl CoreGameContract {
                 max: 0,
                 last_day_played: 0,
             });
+        let mut streak = before.clone();
 
         let day = current_day_id(env);
 
-        if streak.last_day_played + 1 == day {
-            streak.current = streak.current.checked_add(1).unwrap_or(streak.current);
-        } else if streak.last_day_played != day {
-            streak.current = 1;
+        if won {
+            if streak.last_day_played + 1 == day {
+                streak.current = streak.current.checked_add(1).unwrap_or(streak.current);
+            } else if streak.last_day_played != day {
+                streak.current = 1;
+            }
+            if streak.current > streak.max {
+                streak.max = streak.current;
+            }
+            streak.last_day_played = day;
+        } else {
+            // A loss resets the streak. If it is already zero there is nothing
+            // to change, so skip the storage write and the event entirely.
+            if streak.current == 0 {
+                return;
+            }
+            streak.current = 0;
+            streak.last_day_played = day;
         }
 
-        if streak.current > streak.max {
-            streak.max = streak.current;
+        // Skip the write and event when nothing actually changed.
+        if streak.current == before.current
+            && streak.max == before.max
+            && streak.last_day_played == before.last_day_played
+        {
+            return;
         }
 
-        streak.last_day_played = day;
         env.storage()
             .persistent()
             .set(&DataKey::Streak(player.clone()), &streak);
@@ -549,9 +586,9 @@ mod tests {
     fn pause_and_unpause() {
         let (env, _, contract_id) = setup();
         let client = CoreGameContractClient::new(&env, &contract_id);
-        client.pause(&true);
+        client.pause(&true, &1);
         assert!(client.is_paused());
-        client.pause(&false);
+        client.pause(&false, &0);
         assert!(!client.is_paused());
     }
 
@@ -570,7 +607,7 @@ mod tests {
         let (env, _, contract_id) = setup();
         let client = CoreGameContractClient::new(&env, &contract_id);
         publish_day(&env, &client, 1);
-        client.pause(&true);
+        client.pause(&true, &1);
         let player = Address::generate(&env);
         client.create_session(&player, &1, &0);
     }
@@ -794,7 +831,7 @@ mod tests {
         assert_eq!(topics.get(0).unwrap(), Symbol::new(&env, "core_game").into());
         assert_eq!(topics.get(1).unwrap(), Symbol::new(&env, "initialized").into());
 
-        client.pause(&true);
+        client.pause(&true, &1);
         let events = env.events().all();
         let event = events.get(events.len() - 1).unwrap();
         assert_eq!(event.1.len(), 2);
