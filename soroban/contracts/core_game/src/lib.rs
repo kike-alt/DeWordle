@@ -22,6 +22,9 @@ enum DataKey {
     SessionNonce(Address, u32),
     Streak(Address),
     Paused,
+    /// Granular flags: pausing guesses leaves reads (and sessions) available.
+    PauseGuesses,
+    PauseSessions,
 }
 
 #[derive(Clone)]
@@ -41,6 +44,8 @@ pub enum CoreGameError {
     SessionStillInProgress = 11,
     InvalidCommitment = 13,
     ContractPaused = 14,
+    /// `pause_subsystem` was called with a name other than `guesses` or `sessions`.
+    InvalidSubsystem = 15,
 }
 
 #[derive(Clone)]
@@ -55,7 +60,7 @@ pub struct GameConfig {
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 3,
-    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\npause\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
+    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\nis_subsystem_paused\npause\npause_subsystem\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -88,6 +93,23 @@ impl CoreGameContract {
 
     pub fn is_paused(env: Env) -> bool {
         env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Pauses or resumes one subsystem (`guesses` or `sessions`) without
+    /// touching the global flag, so read queries keep working.
+    pub fn pause_subsystem(env: Env, subsystem: Symbol, paused: bool) {
+        require_admin(&env);
+        let key = Self::subsystem_key(&env, &subsystem);
+        env.storage().instance().set(&key, &paused);
+        env.events().publish(
+            (Symbol::new(&env, "core_game"), Symbol::new(&env, "subsystem_paused"), subsystem),
+            paused,
+        );
+    }
+
+    pub fn is_subsystem_paused(env: Env, subsystem: Symbol) -> bool {
+        let key = Self::subsystem_key(&env, &subsystem);
+        env.storage().instance().get(&key).unwrap_or(false)
     }
 
     pub fn set_rotate_schedule(env: Env, schedule_secs: u64) {
@@ -140,6 +162,7 @@ impl CoreGameContract {
 
     pub fn create_session(env: Env, player: Address, day_id: u32, nonce: u32) -> BytesN<32> {
         Self::require_not_paused(&env);
+        Self::require_subsystem_active(&env, DataKey::PauseSessions);
         player.require_auth();
         let config = Self::get_day_config_internal(&env, day_id);
 
@@ -192,6 +215,7 @@ impl CoreGameContract {
         is_correct: bool,
     ) -> GuessResult {
         Self::require_not_paused(&env);
+        Self::require_subsystem_active(&env, DataKey::PauseGuesses);
         player.require_auth();
         if guess_commitment == BytesN::from_array(&env, &[0; 32]) {
             panic_with_error!(&env, CoreGameError::InvalidCommitment);
@@ -387,6 +411,22 @@ impl CoreGameContract {
 
         env.events()
             .publish((Symbol::new(env, "streak"), Symbol::new(env, "updated"), player.clone()), streak);
+    }
+
+    fn subsystem_key(env: &Env, subsystem: &Symbol) -> DataKey {
+        if *subsystem == Symbol::new(env, "guesses") {
+            DataKey::PauseGuesses
+        } else if *subsystem == Symbol::new(env, "sessions") {
+            DataKey::PauseSessions
+        } else {
+            panic_with_error!(env, CoreGameError::InvalidSubsystem)
+        }
+    }
+
+    fn require_subsystem_active(env: &Env, key: DataKey) {
+        if env.storage().instance().get(&key).unwrap_or(false) {
+            panic_with_error!(env, CoreGameError::ContractPaused);
+        }
     }
 
     fn require_not_paused(env: &Env) {
@@ -686,6 +726,55 @@ mod tests {
         assert_eq!(event.1.len(), 2);
         assert_eq!(event.1.get(0).unwrap(), Symbol::new(&env, "core_game").into());
         assert_eq!(event.1.get(1).unwrap(), Symbol::new(&env, "paused").into());
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn paused_guesses_reject_submit_guess() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        client.pause_subsystem(&Symbol::new(&env, "guesses"), &true);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        client.submit_guess(&player, &session_id, &commitment, &0, &false);
+    }
+
+    #[test]
+    fn reads_keep_working_while_guesses_are_paused() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let guesses = Symbol::new(&env, "guesses");
+        client.pause_subsystem(&guesses, &true);
+        assert!(client.is_subsystem_paused(&guesses));
+        assert!(!client.is_subsystem_paused(&Symbol::new(&env, "sessions")));
+        assert_eq!(client.get_session(&session_id).player, player);
+        assert_eq!(client.get_streak(&player).current, 0);
+        client.pause_subsystem(&guesses, &false);
+        assert!(!client.is_subsystem_paused(&guesses));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn paused_sessions_reject_create_session() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        client.pause_subsystem(&Symbol::new(&env, "sessions"), &true);
+        let player = Address::generate(&env);
+        client.create_session(&player, &1, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #15)")]
+    fn unknown_subsystem_is_rejected() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        client.pause_subsystem(&Symbol::new(&env, "bogus"), &true);
     }
 }
 
