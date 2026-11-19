@@ -9,6 +9,7 @@ import { SettingsProvider } from "@/providers/settings-provider";
 import { ToastViewport } from "@/components/ToastViewport";
 import { AchievementCelebration } from "@/components/AchievementCelebration";
 import { PwaInstallBanner } from "@/components/PwaInstallBanner";
+import { SessionRecoveryToast } from "@/components/SessionRecoveryToast";
 import { ZoomRoot } from "@/components/ZoomRoot";
 import { NO_FLASH_SCRIPT } from "@/lib/theme";
 import { OnboardingProvider } from "@/providers/onboarding-provider";
@@ -94,6 +95,7 @@ export default function RootLayout({
                 <Header />
                 <AchievementCelebration />
                 <PwaInstallBanner />
+                <SessionRecoveryToast />
                 <ToastViewport />
                 <main
                   id="main-content"

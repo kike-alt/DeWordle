@@ -111,6 +111,41 @@ export class JobService {
     };
   }
 
+  async getQueueHealth() {
+    const queues = [
+      this.rewardQueue,
+      this.achievementQueue,
+      this.analyticsQueue,
+    ];
+    const queueStates = await Promise.all(
+      queues.map(async (queue) => {
+        const [counts, paused, workers] = await Promise.all([
+          queue.getJobCounts(),
+          queue.isPaused(),
+          queue.getWorkers(),
+        ]);
+        return { counts, paused, workerCount: workers.length };
+      }),
+    );
+
+    return queueStates.reduce(
+      (health, state) => ({
+        active: health.active + state.counts.active,
+        waiting: health.waiting + state.counts.waiting,
+        failed: health.failed + state.counts.failed,
+        paused: health.paused || state.paused,
+        workerCount: health.workerCount + state.workerCount,
+      }),
+      {
+        active: 0,
+        waiting: 0,
+        failed: 0,
+        paused: false,
+        workerCount: 0,
+      },
+    );
+  }
+
   async getDeadLetterJobs(queueName: JobQueueName) {
     let queue: Queue;
     switch (queueName) {

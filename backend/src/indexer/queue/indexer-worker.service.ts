@@ -13,6 +13,7 @@ import { ReplayAlertService } from './replay-alert.service';
 @Injectable()
 export class IndexerWorkerService {
   private readonly logger = new Logger(IndexerWorkerService.name);
+  private lastHeartbeatAt: Date | null = null;
 
   constructor(
     private readonly indexerService: IndexerService,
@@ -21,8 +22,13 @@ export class IndexerWorkerService {
     private readonly replayAlertService: ReplayAlertService,
   ) {}
 
+  getLastHeartbeatAt(): Date | null {
+    return this.lastHeartbeatAt;
+  }
+
   @Cron(CronExpression.EVERY_10_SECONDS)
   async tick() {
+    this.lastHeartbeatAt = new Date();
     const correlationId = randomUUID();
     const network =
       this.configService.get<string>('SOROBAN_NETWORK') ||

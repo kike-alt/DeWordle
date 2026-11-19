@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
+import { KeyboardShortcutsHelp } from '../components/KeyboardNavigation';
 
 describe('KeyboardHelpModal — accessibility', () => {
   beforeEach(() => {
@@ -62,5 +63,28 @@ describe('KeyboardHelpModal — accessibility', () => {
     render(<KeyboardHelpModal open={true} onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: /close help/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the shortcuts modal when ? is pressed outside an input', () => {
+    render(<KeyboardShortcutsHelp />);
+
+    fireEvent.keyDown(document, { key: '?' });
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('does not open the shortcuts modal while typing in an input', () => {
+    render(
+      <>
+        <input aria-label="Guess" />
+        <KeyboardShortcutsHelp />
+      </>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Guess' }), {
+      key: '?',
+    });
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

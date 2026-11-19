@@ -33,6 +33,7 @@ import { DigestModule } from './digest/digest.module';
 import { AdminModule } from './admin/admin.module';
 import { PoolPressureService } from './database/pool-pressure.service';
 import { DatabaseMaintenanceService } from './database/database-maintenance.service';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -152,6 +153,7 @@ import { DatabaseMaintenanceService } from './database/database-maintenance.serv
     JobModule,
     AdminModule,
     MatchmakingModule,
+    HealthModule,
   ],
   controllers: [
     AppController,

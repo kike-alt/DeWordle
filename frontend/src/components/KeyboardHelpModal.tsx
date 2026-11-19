@@ -106,23 +106,33 @@ export function KeyboardHelpModal({ open, onClose }: KeyboardHelpModalProps) {
           </button>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {SHORTCUTS.map(({ keys, description }) => (
-            <div key={description} className="flex items-center justify-between gap-4">
-              <span className="text-sm text-gray-300">{description}</span>
-              <div className="flex gap-1">
-                {keys.map((key) => (
-                  <kbd
-                    key={key}
-                    className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs font-mono text-white"
-                  >
-                    {key}
-                  </kbd>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <table aria-label="Keyboard shortcuts" className="w-full text-left">
+          <thead>
+            <tr className="border-b border-white/10 text-xs uppercase text-gray-400">
+              <th scope="col" className="pb-2 pr-4">Shortcut</th>
+              <th scope="col" className="pb-2">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SHORTCUTS.map(({ keys, description }) => (
+              <tr key={description} className="border-b border-white/5">
+                <td className="py-2 pr-4">
+                  <div className="flex gap-1">
+                    {keys.map((key) => (
+                      <kbd
+                        key={key}
+                        className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs font-mono text-white"
+                      >
+                        {key}
+                      </kbd>
+                    ))}
+                  </div>
+                </td>
+                <td className="py-2 text-sm text-gray-300">{description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
         <p className="text-xs text-gray-500 text-center">
           Press <kbd className="rounded border border-white/20 bg-white/10 px-1 py-0.5 font-mono">?</kbd> to toggle this panel

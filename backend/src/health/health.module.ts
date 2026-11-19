@@ -4,10 +4,13 @@ import Redis from 'ioredis';
 import { HealthController } from './health.controller';
 import { RedisHealthIndicator } from './redis-health.indicator';
 import { REDIS_HEALTH_CLIENT } from './health.constants';
+import { DetailedHealthController } from './detailed-health.controller';
+import { JobModule } from '../common/job.module';
+import { IndexerModule } from '../indexer/indexer.module';
 
 @Module({
-  imports: [TerminusModule],
-  controllers: [HealthController],
+  imports: [TerminusModule, JobModule, IndexerModule],
+  controllers: [HealthController, DetailedHealthController],
   providers: [
     RedisHealthIndicator,
     {

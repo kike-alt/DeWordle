@@ -21,6 +21,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { PlayerProfileCard } from './PlayerProfileCard';
 import { StreakBadge } from './StreakBadge';
 import { useWalletContext } from '@/providers/stellar-wallet-provider';
+import { KeyboardShortcutsHelp } from './KeyboardNavigation';
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -58,6 +59,7 @@ export default function Header() {
         </div>
 
         <MobileMenu isAuthenticated={isAuthenticated} />
+        <KeyboardShortcutsHelp />
 
         <ul
           role="list"
