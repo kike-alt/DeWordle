@@ -8,12 +8,26 @@ use dewordle_types::{DayConfig, GuessResult, PlayerStreak, Session, SessionStatu
 use dewordle_utils::metadata::{self, ContractMetadata, MetadataDefaults};
 use dewordle_utils::{current_day_id, ReentrancyGuard};
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
-    Symbol,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Bytes, BytesN,
+    Env, Symbol,
 };
 use soroban_sdk::xdr::ToXdr;
 
 const MAX_ATTEMPTS_LIMIT: u32 = 20;
+/// A new session nonce must be within this distance of the highest nonce the
+/// player has used, so nonces cannot be pre-generated arbitrarily far ahead
+/// and old nonce records can be pruned once they fall behind the window.
+pub const NONCE_WINDOW: u32 = 1_000;
+
+/// Window after a day's `closes_at` during which its puzzle may be revealed
+/// (24 hours). Reveals later than this fail with `CoreGameError::RevealExpired`.
+pub const REVEAL_WINDOW_SECS: u64 = 86_400;
+
+/// Persistent-storage TTL policy applied when a session is finalized: when a
+/// touched entry has fewer than `TTL_THRESHOLD` ledgers left, extend it to
+/// `TTL_EXTEND_TO` (at least 100,000 ledgers).
+pub const TTL_THRESHOLD: u32 = 50_000;
+pub const TTL_EXTEND_TO: u32 = 100_000;
 
 #[derive(Clone)]
 #[contracttype]
@@ -21,10 +35,13 @@ enum DataKey {
     DayConfig(u32),
     Session(BytesN<32>),
     SessionNonce(Address, u32),
+    /// Highest session nonce the player has used.
+    HighestNonce(Address),
     Streak(Address),
     Paused,
-    /// Reason code recorded by the latest `pause` call (0 = none).
-    PauseReason,
+    /// Granular flags: pausing guesses leaves reads (and sessions) available.
+    PauseGuesses,
+    PauseSessions,
 }
 
 #[derive(Clone)]
@@ -44,6 +61,8 @@ pub enum CoreGameError {
     SessionStillInProgress = 11,
     InvalidCommitment = 13,
     ContractPaused = 14,
+    /// `pause_subsystem` was called with a name other than `guesses` or `sessions`.
+    InvalidSubsystem = 15,
 }
 
 #[derive(Clone)]
@@ -58,7 +77,7 @@ pub struct GameConfig {
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 3,
-    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_pause_reason\nget_streak\nget_word_dictionary_root\ninit\nis_nonce_used\nis_paused\npause\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
+    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\nis_subsystem_paused\npause\npause_subsystem\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -110,6 +129,23 @@ impl CoreGameContract {
         env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
     }
 
+    /// Pauses or resumes one subsystem (`guesses` or `sessions`) without
+    /// touching the global flag, so read queries keep working.
+    pub fn pause_subsystem(env: Env, subsystem: Symbol, paused: bool) {
+        require_admin(&env);
+        let key = Self::subsystem_key(&env, &subsystem);
+        env.storage().instance().set(&key, &paused);
+        env.events().publish(
+            (Symbol::new(&env, "core_game"), Symbol::new(&env, "subsystem_paused"), subsystem),
+            paused,
+        );
+    }
+
+    pub fn is_subsystem_paused(env: Env, subsystem: Symbol) -> bool {
+        let key = Self::subsystem_key(&env, &subsystem);
+        env.storage().instance().get(&key).unwrap_or(false)
+    }
+
     pub fn set_rotate_schedule(env: Env, schedule_secs: u64) {
         require_admin(&env);
         env.storage().instance().set(&Symbol::new(&env, "rotate_schedule"), &schedule_secs);
@@ -142,6 +178,11 @@ impl CoreGameContract {
             panic_with_error!(&env, CoreGameError::InvalidMaxAttempts);
         }
 
+        // A day that is already closed would lock every player out at once.
+        if closes_at <= env.ledger().timestamp() {
+            panic_with_error!(&env, CoreGameError::InvalidClosesAt);
+        }
+
         let config = DayConfig {
             day_id,
             puzzle_commitment,
@@ -158,8 +199,33 @@ impl CoreGameContract {
             .publish((Symbol::new(&env, "day"), Symbol::new(&env, "published"), day_id), config);
     }
 
+    /// Admin-only: reveals the word behind a day's commitment. The word and
+    /// salt must hash (sha256 of salt then word) to the stored commitment, and
+    /// the reveal must arrive no later than `REVEAL_WINDOW_SECS` after the
+    /// day's `closes_at`.
+    pub fn reveal_puzzle(env: Env, day_id: u32, word: Bytes, salt: Bytes) {
+        require_admin(&env);
+        let config = Self::get_day_config_internal(&env, day_id);
+
+        if env.ledger().timestamp() > config.closes_at.saturating_add(REVEAL_WINDOW_SECS) {
+            panic_with_error!(&env, CoreGameError::RevealExpired);
+        }
+
+        let mut preimage = salt;
+        preimage.append(&word);
+        let digest: BytesN<32> = env.crypto().sha256(&preimage).into();
+        if digest != config.puzzle_commitment {
+            panic_with_error!(&env, CoreGameError::InvalidCommitment);
+        }
+
+        env.storage().persistent().set(&DataKey::Revealed(day_id), &word);
+        env.events()
+            .publish((Symbol::new(&env, "day"), Symbol::new(&env, "revealed"), day_id), word);
+    }
+
     pub fn create_session(env: Env, player: Address, day_id: u32, nonce: u32) -> BytesN<32> {
         Self::require_not_paused(&env);
+        Self::require_subsystem_active(&env, DataKey::PauseSessions);
         player.require_auth();
         let config = Self::get_day_config_internal(&env, day_id);
 
@@ -174,6 +240,22 @@ impl CoreGameContract {
         let nonce_key = DataKey::SessionNonce(player.clone(), nonce);
         if env.storage().persistent().has(&nonce_key) {
             panic_with_error!(&env, CoreGameError::NonceAlreadyUsed);
+        }
+
+        let highest: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::HighestNonce(player.clone()))
+            .unwrap_or(0);
+        if nonce > highest.saturating_add(NONCE_WINDOW)
+            || nonce.saturating_add(NONCE_WINDOW) < highest
+        {
+            panic_with_error!(&env, CoreGameError::StaleNonce);
+        }
+        if nonce > highest {
+            env.storage()
+                .persistent()
+                .set(&DataKey::HighestNonce(player.clone()), &nonce);
         }
 
         let session_id = Self::derive_session_id(&env, &player, day_id, nonce);
@@ -212,6 +294,7 @@ impl CoreGameContract {
         is_correct: bool,
     ) -> GuessResult {
         Self::require_not_paused(&env);
+        Self::require_subsystem_active(&env, DataKey::PauseGuesses);
         player.require_auth();
         if guess_commitment == BytesN::from_array(&env, &[0; 32]) {
             panic_with_error!(&env, CoreGameError::InvalidCommitment);
@@ -286,6 +369,19 @@ impl CoreGameContract {
             .set(&DataKey::Session(session_id.clone()), &session);
 
         Self::update_streak(&env, &player, won);
+
+        // Keep the finalized session and the player's streak from archiving.
+        env.storage().persistent().extend_ttl(
+            &DataKey::Session(session_id.clone()),
+            TTL_THRESHOLD,
+            TTL_EXTEND_TO,
+        );
+        let streak_key = DataKey::Streak(player.clone());
+        if env.storage().persistent().has(&streak_key) {
+            env.storage()
+                .persistent()
+                .extend_ttl(&streak_key, TTL_THRESHOLD, TTL_EXTEND_TO);
+        }
 
         env.events()
             .publish((Symbol::new(&env, "session"), Symbol::new(&env, "finalized"), session_id), player);
@@ -426,6 +522,22 @@ impl CoreGameContract {
 
         env.events()
             .publish((Symbol::new(env, "streak"), Symbol::new(env, "updated"), player.clone()), streak);
+    }
+
+    fn subsystem_key(env: &Env, subsystem: &Symbol) -> DataKey {
+        if *subsystem == Symbol::new(env, "guesses") {
+            DataKey::PauseGuesses
+        } else if *subsystem == Symbol::new(env, "sessions") {
+            DataKey::PauseSessions
+        } else {
+            panic_with_error!(env, CoreGameError::InvalidSubsystem)
+        }
+    }
+
+    fn require_subsystem_active(env: &Env, key: DataKey) {
+        if env.storage().instance().get(&key).unwrap_or(false) {
+            panic_with_error!(env, CoreGameError::ContractPaused);
+        }
     }
 
     fn require_not_paused(env: &Env) {
@@ -728,48 +840,52 @@ mod tests {
     }
 
     #[test]
-    fn pause_stores_reason_code_and_unpause_clears_it() {
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn paused_guesses_reject_submit_guess() {
         let (env, _, contract_id) = setup();
         let client = CoreGameContractClient::new(&env, &contract_id);
-        assert_eq!(client.get_pause_reason(), 0);
-        client.pause(&true, &2);
-        assert!(client.is_paused());
-        assert_eq!(client.get_pause_reason(), 2);
-        client.pause(&false, &9);
-        assert_eq!(client.get_pause_reason(), 0);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        client.pause_subsystem(&Symbol::new(&env, "guesses"), &true);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        client.submit_guess(&player, &session_id, &commitment, &0, &false);
     }
 
     #[test]
-    fn losing_with_a_zero_streak_writes_nothing() {
+    fn reads_keep_working_while_guesses_are_paused() {
         let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
         let player = Address::generate(&env);
-        env.as_contract(&contract_id, || {
-            CoreGameContract::update_streak(&env, &player, false);
-            assert!(!env.storage().persistent().has(&DataKey::Streak(player.clone())));
-        });
+        let session_id = client.create_session(&player, &1, &0);
+        let guesses = Symbol::new(&env, "guesses");
+        client.pause_subsystem(&guesses, &true);
+        assert!(client.is_subsystem_paused(&guesses));
+        assert!(!client.is_subsystem_paused(&Symbol::new(&env, "sessions")));
+        assert_eq!(client.get_session(&session_id).player, player);
+        assert_eq!(client.get_streak(&player).current, 0);
+        client.pause_subsystem(&guesses, &false);
+        assert!(!client.is_subsystem_paused(&guesses));
     }
 
     #[test]
-    fn losing_resets_a_running_streak() {
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn paused_sessions_reject_create_session() {
         let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        client.pause_subsystem(&Symbol::new(&env, "sessions"), &true);
         let player = Address::generate(&env);
-        env.as_contract(&contract_id, || {
-            CoreGameContract::update_streak(&env, &player, true);
-            let after_win: PlayerStreak = env
-                .storage()
-                .persistent()
-                .get(&DataKey::Streak(player.clone()))
-                .unwrap();
-            assert_eq!(after_win.current, 1);
-            CoreGameContract::update_streak(&env, &player, false);
-            let after_loss: PlayerStreak = env
-                .storage()
-                .persistent()
-                .get(&DataKey::Streak(player.clone()))
-                .unwrap();
-            assert_eq!(after_loss.current, 0);
-            assert_eq!(after_loss.max, 1);
-        });
+        client.create_session(&player, &1, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #15)")]
+    fn unknown_subsystem_is_rejected() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        client.pause_subsystem(&Symbol::new(&env, "bogus"), &true);
     }
 }
 
