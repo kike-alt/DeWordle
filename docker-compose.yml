@@ -109,9 +109,35 @@ services:
     networks:
       - dewordle-net
 
+  # Caddy reverse proxy (automatic TLS)
+  caddy:
+    image: caddy:2-alpine
+    container_name: dewordle-caddy
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/healthcheck.sh:/usr/local/bin/healthcheck.sh:ro
+      - caddy_data:/data
+    healthcheck:
+      test: ["CMD", "sh", "/usr/local/bin/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - dewordle-net
+
 networks:
   dewordle-net:
     driver: bridge
 
 volumes:
   postgres_data:
+  caddy_data:

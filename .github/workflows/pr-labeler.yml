@@ -20,3 +20,39 @@ jobs:
         uses: actions/labeler@v5
         with:
           sync-labels: true
+
+  size:
+    name: Apply size label
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Label pull request by diff size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+            const IGNORE = [
+              /(^|\/)package-lock\.json$/,
+              /(^|\/)(yarn\.lock|pnpm-lock\.yaml|Cargo\.lock)$/,
+              /(^|\/)generated\//,
+              /\.generated\./,
+              /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|wasm|pdf|zip|snap)$/i,
+            ];
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: number, per_page: 100 });
+            const lines = files
+              .filter((f) => !IGNORE.some((re) => re.test(f.filename)))
+              .reduce((n, f) => n + f.additions + f.deletions, 0);
+            const label = lines < 100 ? 'size/S' : lines < 300 ? 'size/M' : lines < 800 ? 'size/L' : 'size/XL';
+            const ALL = ['size/S', 'size/M', 'size/L', 'size/XL'];
+            const current = (await github.paginate(github.rest.issues.listLabelsOnIssue, { owner, repo, issue_number: number })).map((l) => l.name);
+            for (const name of current.filter((n) => ALL.includes(n) && n !== label)) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: number, name });
+            }
+            if (!current.includes(label)) {
+              try {
+                await github.rest.issues.createLabel({ owner, repo, name: label, color: 'ededed' });
+              } catch (e) { /* already exists */ }
+              await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: [label] });
+            }
+            core.info(`${lines} changed lines -> ${label}`);
