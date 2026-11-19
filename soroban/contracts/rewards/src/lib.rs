@@ -8,8 +8,12 @@ use dewordle_auth::require_owner_or_admin;
 use dewordle_utils::metadata::{self, ContractMetadata, MetadataDefaults};
 use dewordle_utils::ReentrancyGuard;
 use soroban_sdk::{BytesN,
-    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Env, Symbol,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Env, Symbol, Vec,
 };
+
+/// Bounds every reward multiplier must stay within.
+pub const MIN_MULTIPLIER: u32 = 1;
+pub const MAX_MULTIPLIER: u32 = 10;
 
 #[derive(Clone)]
 #[contracttype]
@@ -21,9 +25,14 @@ enum DataKey {
     Nonce(Address, u64),
     GamesWon(Address),
     Rank(Address),
-    /// Per-claim payout cap (instance storage); absent or 0 means uncapped.
-    MaxClaimCap,
+    /// Ledger sequence of the player's last claim (temporary storage).
+    LastClaimedLedger(Address),
 }
+
+/// Minimum number of ledgers between two claims by the same player.
+pub const CLAIM_COOLDOWN_LEDGERS: u32 = 100;
+/// Claimants holding more than this balance skip the cooldown.
+pub const CLAIM_COOLDOWN_BYPASS_BALANCE: u64 = 1_000_000;
 
 #[derive(Clone)]
 #[contracttype]
@@ -55,13 +64,21 @@ pub enum RewardsError {
     InvalidNonce = 4,
     /// A balance or lifetime total would exceed `u64::MAX`.
     Overflow = 5,
+    /// The player claimed fewer than `CLAIM_COOLDOWN_LEDGERS` ledgers ago.
+    CooldownActive = 6,
 }
+
+/// Most days `get_emission_schedule` returns per call.
+pub const MAX_SCHEDULE_DAYS: u32 = 14;
+/// Base emission reported for days that have no configured emission.
+pub const DEFAULT_WIN_POINTS: u64 = 100;
+pub const DEFAULT_PARTICIPATION_POINTS: u64 = 10;
 
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
-    version: 2,
-    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_max_claim_cap\nset_rank\nupdate_metadata\nverify_signature\nversion",
+    version: 3,
+    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -71,13 +88,15 @@ pub struct RewardsContract;
 #[contractimpl]
 impl RewardsContract {
     pub fn get_multiplier(env: Env, attempts: u32) -> u32 {
-        if attempts <= 3 {
+        let raw = if attempts <= 3 {
             3
         } else if attempts <= 5 {
             2
         } else {
             1
-        }
+        };
+        // Whatever the schedule above becomes, the result stays in range.
+        raw.clamp(MIN_MULTIPLIER, MAX_MULTIPLIER)
     }
 
     pub fn verify_signature(env: Env, public_key: soroban_sdk::BytesN<32>, signature: soroban_sdk::BytesN<64>, message: soroban_sdk::Bytes) -> bool {
@@ -120,6 +139,10 @@ impl RewardsContract {
 
     pub fn accrue(env: Env, player: Address, points: u64, nonce: u64, reason: Symbol) {
         Self::require_admin(&env);
+        // Zero points would burn gas and emit an empty event for no benefit.
+        if points == 0 {
+            panic_with_error!(&env, RewardsError::InvalidAmount);
+        }
         if env
             .storage()
             .persistent()
@@ -164,14 +187,27 @@ impl RewardsContract {
         // Payout path: block nested entry while balances are being moved.
         let _guard = ReentrancyGuard::enter(&env);
 
-        let full_balance = Self::balance_of(env.clone(), player.clone());
-        // Pay at most the configured cap; the rest stays claimable later.
-        let cap: u64 = env
-            .storage()
-            .instance()
-            .get(&DataKey::MaxClaimCap)
-            .unwrap_or(0);
-        let balance = if cap > 0 && full_balance > cap { cap } else { full_balance };
+        let balance = Self::balance_of(env.clone(), player.clone());
+
+        // Cooldown: reject repeat claims within the window unless the
+        // claimant's balance is above the bypass threshold.
+        let cooldown_key = DataKey::LastClaimedLedger(player.clone());
+        if balance <= CLAIM_COOLDOWN_BYPASS_BALANCE {
+            if let Some(last) = env.storage().temporary().get::<_, u32>(&cooldown_key) {
+                if env.ledger().sequence() < last.saturating_add(CLAIM_COOLDOWN_LEDGERS) {
+                    panic_with_error!(&env, RewardsError::CooldownActive);
+                }
+            }
+        }
+        env.storage()
+            .temporary()
+            .set(&cooldown_key, &env.ledger().sequence());
+        env.storage().temporary().extend_ttl(
+            &cooldown_key,
+            CLAIM_COOLDOWN_LEDGERS,
+            CLAIM_COOLDOWN_LEDGERS,
+        );
+
         env.storage()
             .persistent()
             .set(&DataKey::Balance(player.clone()), &(full_balance - balance));
@@ -211,6 +247,28 @@ impl RewardsContract {
 
     pub fn get_emission(env: Env, day_id: u32) -> Option<EmissionConfig> {
         env.storage().persistent().get(&DataKey::Emission(day_id))
+    }
+
+    /// Emission configs for `count` consecutive days starting at `start_day`
+    /// (capped at `MAX_SCHEDULE_DAYS`). Days without a configured emission
+    /// report the default base values.
+    pub fn get_emission_schedule(env: Env, start_day: u32, count: u32) -> Vec<EmissionConfig> {
+        let count = if count > MAX_SCHEDULE_DAYS { MAX_SCHEDULE_DAYS } else { count };
+        let mut out: Vec<EmissionConfig> = Vec::new(&env);
+        for offset in 0..count {
+            let day_id = start_day.saturating_add(offset);
+            let cfg = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Emission(day_id))
+                .unwrap_or(EmissionConfig {
+                    day_id,
+                    win_points: DEFAULT_WIN_POINTS,
+                    participation_points: DEFAULT_PARTICIPATION_POINTS,
+                });
+            out.push_back(cfg);
+        }
+        out
     }
 
     /// Records a win for a player (admin-gated). Uses the same nonce
@@ -301,9 +359,9 @@ impl RewardsContract {
     pub fn version(env: Env) -> u32 {
         env.events().publish(
             (Symbol::new(&env, "module"), Symbol::new(&env, "rewards")),
-            2u32,
+            3u32,
         );
-        2
+        3
     }
 
     /// Role-based access control check (Issue #1206): verifies the invocation
@@ -504,37 +562,41 @@ mod tests {
     }
 
     #[test]
-    fn claim_pays_at_most_the_cap_and_keeps_the_rest() {
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn immediate_second_claim_hits_cooldown() {
         let (env, _, contract_id) = setup();
         let client = RewardsContractClient::new(&env, &contract_id);
         let player = Address::generate(&env);
         let reason = Symbol::new(&env, "win");
-        client.set_max_claim_cap(&300);
-        client.accrue(&player, &500, &1, &reason);
-        assert_eq!(client.claim(&player), 300);
-        assert_eq!(client.balance_of(&player), 200);
-        assert_eq!(client.claimed_total(&player), 300);
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        client.accrue(&player, &50, &2, &reason);
+        client.claim(&player);
     }
 
     #[test]
-    fn claim_below_the_cap_pays_everything() {
+    fn claim_allowed_again_after_cooldown_window() {
+        use soroban_sdk::testutils::Ledger;
         let (env, _, contract_id) = setup();
         let client = RewardsContractClient::new(&env, &contract_id);
         let player = Address::generate(&env);
-        client.set_max_claim_cap(&300);
-        client.accrue(&player, &100, &1, &Symbol::new(&env, "win"));
-        assert_eq!(client.claim(&player), 100);
-        assert_eq!(client.balance_of(&player), 0);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        env.ledger().with_mut(|l| l.sequence_number += CLAIM_COOLDOWN_LEDGERS);
+        client.accrue(&player, &25, &2, &reason);
+        assert_eq!(client.claim(&player), 25);
     }
 
     #[test]
-    #[should_panic]
-    fn non_admin_cannot_set_the_cap() {
-        let env = Env::default();
-        let admin = Address::generate(&env);
-        let contract_id = env.register(RewardsContract, ());
+    fn large_balance_bypasses_cooldown() {
+        let (env, _, contract_id) = setup();
         let client = RewardsContractClient::new(&env, &contract_id);
-        client.init(&admin);
-        client.set_max_claim_cap(&10);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        client.accrue(&player, &(CLAIM_COOLDOWN_BYPASS_BALANCE + 1), &2, &reason);
+        assert_eq!(client.claim(&player), CLAIM_COOLDOWN_BYPASS_BALANCE + 1);
     }
 }

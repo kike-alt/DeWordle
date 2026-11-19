@@ -1,3 +1,4 @@
+import { nativeToScVal } from "@stellar/stellar-sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RewardsClient } from "./rewards-client";
 import { decodeCall } from "./testing/decode";
@@ -57,5 +58,40 @@ describe("RewardsClient", () => {
   it("buildClaimTx reports an unknown account", async () => {
     rpc.getAccount.mockRejectedValueOnce(new Error("account not found"));
     await expect(new RewardsClient(CONTRACT_IDS.rewards, TESTNET).buildClaimTx(SOURCE_KEY)).rejects.toThrow("account not found");
+  });
+});
+
+describe("RewardsClient.simulateClaim", () => {
+  const client = () => new RewardsClient(CONTRACT_IDS.rewards, TESTNET, { skipCompatibilityCheck: true });
+  const sim = (retval: unknown, fee = "321") => ({
+    id: "1",
+    latestLedger: 1,
+    events: [],
+    transactionData: {},
+    minResourceFee: fee,
+    result: { retval },
+  });
+
+  it("returns the parsed claimable amount and fee without a signature", async () => {
+    rpc.simulateTransaction.mockResolvedValueOnce(sim(nativeToScVal(500n, { type: "u64" })));
+    await expect(client().simulateClaim(SOURCE_KEY)).resolves.toEqual({ claimableAmount: 500n, fee: "321" });
+    expect(rpc.sendTransaction).not.toHaveBeenCalled();
+    expect(rpc.getAccount).not.toHaveBeenCalled();
+    expect(decodeCall(rpc.simulateTransaction.mock.calls[0][0]).method).toBe("claim");
+  });
+
+  it("returns 0n for a zero balance", async () => {
+    rpc.simulateTransaction.mockResolvedValueOnce(sim(nativeToScVal(0n, { type: "u64" })));
+    expect((await client().simulateClaim(SOURCE_KEY)).claimableAmount).toBe(0n);
+  });
+
+  it("returns 0n when the contract is not initialized", async () => {
+    rpc.simulateTransaction.mockResolvedValueOnce({ id: "1", latestLedger: 1, error: "Error(Contract, #2)" });
+    await expect(client().simulateClaim(SOURCE_KEY)).resolves.toEqual({ claimableAmount: 0n, fee: "0" });
+  });
+
+  it("rethrows other simulation failures", async () => {
+    rpc.simulateTransaction.mockResolvedValueOnce({ id: "1", latestLedger: 1, error: "Error(Contract, #6)" });
+    await expect(client().simulateClaim(SOURCE_KEY)).rejects.toThrow(/#6/);
   });
 });
