@@ -7,12 +7,22 @@ use dewordle_types::{DayConfig, GuessResult, PlayerStreak, Session, SessionStatu
 use dewordle_utils::metadata::{self, ContractMetadata, MetadataDefaults};
 use dewordle_utils::{current_day_id, ReentrancyGuard};
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, BytesN, Env,
-    Symbol,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Bytes, BytesN,
+    Env, Symbol,
 };
 use soroban_sdk::xdr::ToXdr;
 
 const MAX_ATTEMPTS_LIMIT: u32 = 20;
+
+/// Window after a day's `closes_at` during which its puzzle may be revealed
+/// (24 hours). Reveals later than this fail with `CoreGameError::RevealExpired`.
+pub const REVEAL_WINDOW_SECS: u64 = 86_400;
+
+/// Persistent-storage TTL policy applied when a session is finalized: when a
+/// touched entry has fewer than `TTL_THRESHOLD` ledgers left, extend it to
+/// `TTL_EXTEND_TO` (at least 100,000 ledgers).
+pub const TTL_THRESHOLD: u32 = 50_000;
+pub const TTL_EXTEND_TO: u32 = 100_000;
 
 #[derive(Clone)]
 #[contracttype]
@@ -22,6 +32,8 @@ enum DataKey {
     SessionNonce(Address, u32),
     Streak(Address),
     Paused,
+    /// Word revealed for a day (set by `reveal_puzzle`).
+    Revealed(u32),
 }
 
 #[derive(Clone)]
@@ -41,6 +53,8 @@ pub enum CoreGameError {
     SessionStillInProgress = 11,
     InvalidCommitment = 13,
     ContractPaused = 14,
+    /// The reveal arrived more than `REVEAL_WINDOW_SECS` after `closes_at`.
+    RevealExpired = 18,
 }
 
 #[derive(Clone)]
@@ -55,7 +69,7 @@ pub struct GameConfig {
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 3,
-    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\npause\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
+    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\npause\nreveal_puzzle\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -136,6 +150,30 @@ impl CoreGameContract {
 
         env.events()
             .publish((Symbol::new(&env, "day"), Symbol::new(&env, "published"), day_id), config);
+    }
+
+    /// Admin-only: reveals the word behind a day's commitment. The word and
+    /// salt must hash (sha256 of salt then word) to the stored commitment, and
+    /// the reveal must arrive no later than `REVEAL_WINDOW_SECS` after the
+    /// day's `closes_at`.
+    pub fn reveal_puzzle(env: Env, day_id: u32, word: Bytes, salt: Bytes) {
+        require_admin(&env);
+        let config = Self::get_day_config_internal(&env, day_id);
+
+        if env.ledger().timestamp() > config.closes_at.saturating_add(REVEAL_WINDOW_SECS) {
+            panic_with_error!(&env, CoreGameError::RevealExpired);
+        }
+
+        let mut preimage = salt;
+        preimage.append(&word);
+        let digest: BytesN<32> = env.crypto().sha256(&preimage).into();
+        if digest != config.puzzle_commitment {
+            panic_with_error!(&env, CoreGameError::InvalidCommitment);
+        }
+
+        env.storage().persistent().set(&DataKey::Revealed(day_id), &word);
+        env.events()
+            .publish((Symbol::new(&env, "day"), Symbol::new(&env, "revealed"), day_id), word);
     }
 
     pub fn create_session(env: Env, player: Address, day_id: u32, nonce: u32) -> BytesN<32> {
@@ -265,6 +303,19 @@ impl CoreGameContract {
             .set(&DataKey::Session(session_id.clone()), &session);
 
         Self::update_streak(&env, &player);
+
+        // Keep the finalized session and the player's streak from archiving.
+        env.storage().persistent().extend_ttl(
+            &DataKey::Session(session_id.clone()),
+            TTL_THRESHOLD,
+            TTL_EXTEND_TO,
+        );
+        let streak_key = DataKey::Streak(player.clone());
+        if env.storage().persistent().has(&streak_key) {
+            env.storage()
+                .persistent()
+                .extend_ttl(&streak_key, TTL_THRESHOLD, TTL_EXTEND_TO);
+        }
 
         env.events()
             .publish((Symbol::new(&env, "session"), Symbol::new(&env, "finalized"), session_id), player);
@@ -686,6 +737,71 @@ mod tests {
         assert_eq!(event.1.len(), 2);
         assert_eq!(event.1.get(0).unwrap(), Symbol::new(&env, "core_game").into());
         assert_eq!(event.1.get(1).unwrap(), Symbol::new(&env, "paused").into());
+    }
+
+    fn commitment_for(env: &Env, word: &Bytes, salt: &Bytes) -> BytesN<32> {
+        let mut preimage = salt.clone();
+        preimage.append(word);
+        env.crypto().sha256(&preimage).into()
+    }
+
+    #[test]
+    fn reveal_inside_the_window_succeeds() {
+        use soroban_sdk::testutils::Ledger;
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        let word = Bytes::from_slice(&env, b"crane");
+        let salt = Bytes::from_slice(&env, b"salt");
+        let commitment = commitment_for(&env, &word, &salt);
+        client.set_day_config(&1, &commitment, &6, &10_000);
+        env.ledger().with_mut(|l| l.timestamp = 10_000 + REVEAL_WINDOW_SECS);
+        client.reveal_puzzle(&1, &word, &salt);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #18)")]
+    fn reveal_after_the_window_panics() {
+        use soroban_sdk::testutils::Ledger;
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        let word = Bytes::from_slice(&env, b"crane");
+        let salt = Bytes::from_slice(&env, b"salt");
+        let commitment = commitment_for(&env, &word, &salt);
+        client.set_day_config(&1, &commitment, &6, &10_000);
+        env.ledger().with_mut(|l| l.timestamp = 10_000 + REVEAL_WINDOW_SECS + 1);
+        client.reveal_puzzle(&1, &word, &salt);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #13)")]
+    fn reveal_with_the_wrong_word_panics() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        let word = Bytes::from_slice(&env, b"crane");
+        let salt = Bytes::from_slice(&env, b"salt");
+        let commitment = commitment_for(&env, &word, &salt);
+        client.set_day_config(&1, &commitment, &6, &u64::MAX);
+        client.reveal_puzzle(&1, &Bytes::from_slice(&env, b"slate"), &salt);
+    }
+
+    #[test]
+    fn finalize_extends_session_and_streak_ttl() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let commitment = BytesN::from_array(&env, &[3u8; 32]);
+        client.submit_guess(&player, &session_id, &commitment, &1, &true);
+        client.finalize_session(&player, &session_id);
+        env.as_contract(&contract_id, || {
+            let ttl = env
+                .storage()
+                .persistent()
+                .get_ttl(&DataKey::Session(session_id.clone()));
+            assert!(ttl >= TTL_EXTEND_TO);
+            assert!(env.storage().persistent().get_ttl(&DataKey::Streak(player.clone())) >= TTL_EXTEND_TO);
+        });
     }
 }
 

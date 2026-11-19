@@ -8,7 +8,7 @@ use dewordle_auth::require_owner_or_admin;
 use dewordle_utils::metadata::{self, ContractMetadata, MetadataDefaults};
 use dewordle_utils::ReentrancyGuard;
 use soroban_sdk::{BytesN,
-    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Env, Symbol,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Env, Symbol, Vec,
 };
 
 #[derive(Clone)]
@@ -53,13 +53,21 @@ pub enum RewardsError {
     InvalidNonce = 4,
     /// A balance or lifetime total would exceed `u64::MAX`.
     Overflow = 5,
+    /// `accrue` was called with zero points.
+    InvalidAmount = 7,
 }
+
+/// Most days `get_emission_schedule` returns per call.
+pub const MAX_SCHEDULE_DAYS: u32 = 14;
+/// Base emission reported for days that have no configured emission.
+pub const DEFAULT_WIN_POINTS: u64 = 100;
+pub const DEFAULT_PARTICIPATION_POINTS: u64 = 10;
 
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 2,
-    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
+    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_emission_schedule\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -111,6 +119,10 @@ impl RewardsContract {
 
     pub fn accrue(env: Env, player: Address, points: u64, nonce: u64, reason: Symbol) {
         Self::require_admin(&env);
+        // Zero points would burn gas and emit an empty event for no benefit.
+        if points == 0 {
+            panic_with_error!(&env, RewardsError::InvalidAmount);
+        }
         if env
             .storage()
             .persistent()
@@ -195,6 +207,28 @@ impl RewardsContract {
 
     pub fn get_emission(env: Env, day_id: u32) -> Option<EmissionConfig> {
         env.storage().persistent().get(&DataKey::Emission(day_id))
+    }
+
+    /// Emission configs for `count` consecutive days starting at `start_day`
+    /// (capped at `MAX_SCHEDULE_DAYS`). Days without a configured emission
+    /// report the default base values.
+    pub fn get_emission_schedule(env: Env, start_day: u32, count: u32) -> Vec<EmissionConfig> {
+        let count = if count > MAX_SCHEDULE_DAYS { MAX_SCHEDULE_DAYS } else { count };
+        let mut out: Vec<EmissionConfig> = Vec::new(&env);
+        for offset in 0..count {
+            let day_id = start_day.saturating_add(offset);
+            let cfg = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Emission(day_id))
+                .unwrap_or(EmissionConfig {
+                    day_id,
+                    win_points: DEFAULT_WIN_POINTS,
+                    participation_points: DEFAULT_PARTICIPATION_POINTS,
+                });
+            out.push_back(cfg);
+        }
+        out
     }
 
     /// Records a win for a player (admin-gated). Uses the same nonce
@@ -485,5 +519,37 @@ mod tests {
         client.init(&admin);
         let player = Address::generate(&env);
         client.record_win(&player, &1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #7)")]
+    fn accrue_zero_points_panics() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        let player = Address::generate(&env);
+        client.accrue(&player, &0, &1, &Symbol::new(&env, "win"));
+    }
+
+    #[test]
+    fn emission_schedule_returns_seven_consecutive_days() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        client.set_emission(&12, &500, &50);
+        let schedule = client.get_emission_schedule(&10, &7);
+        assert_eq!(schedule.len(), 7);
+        for i in 0..7u32 {
+            assert_eq!(schedule.get(i).unwrap().day_id, 10 + i);
+        }
+        // Configured day keeps its values; others use the defaults.
+        assert_eq!(schedule.get(2).unwrap().win_points, 500);
+        assert_eq!(schedule.get(0).unwrap().win_points, DEFAULT_WIN_POINTS);
+    }
+
+    #[test]
+    fn emission_schedule_is_capped_at_fourteen_days() {
+        let (env, _, contract_id) = setup();
+        let client = RewardsContractClient::new(&env, &contract_id);
+        assert_eq!(client.get_emission_schedule(&1, &100).len(), MAX_SCHEDULE_DAYS);
+        assert_eq!(client.get_emission_schedule(&1, &0).len(), 0);
     }
 }
