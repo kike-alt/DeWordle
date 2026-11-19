@@ -158,7 +158,13 @@ fn full_game_lifecycle_win_accrues_rewards_and_unlocks_achievement() {
 
     // --- achievements: define and unlock "first_win" -----------------------
     let first_win = Symbol::new(&env, "first_win");
-    d.achievements.define(&first_win, &Symbol::new(&env, "wins"), &1, &true);
+    d.achievements.define(
+        &first_win,
+        &Symbol::new(&env, "wins"),
+        &1,
+        &true,
+        &Symbol::new(&env, "general"),
+    );
     d.achievements.unlock(&player, &first_win, &1);
 
     // --- the whole outcome, in one comparison ------------------------------
@@ -217,7 +223,13 @@ fn full_game_lifecycle_loss_earns_participation_only() {
     assert_eq!(d.rewards.get_player_stats(&player).games_won, 0);
 
     let first_win = Symbol::new(&env, "first_win");
-    d.achievements.define(&first_win, &Symbol::new(&env, "wins"), &1, &true);
+    d.achievements.define(
+        &first_win,
+        &Symbol::new(&env, "wins"),
+        &1,
+        &true,
+        &Symbol::new(&env, "general"),
+    );
     assert!(d.achievements.get_unlocked(&player, &first_win).is_none());
 }
 
