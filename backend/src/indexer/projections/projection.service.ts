@@ -54,8 +54,24 @@ export class ProjectionService {
       schemaVersion: CURRENT_PROJECTION_VERSION,
     });
 
+    const startedAt = Date.now();
     await this.sessionsRepo.save(projection);
+    const durationMs = Date.now() - startedAt;
+    const thresholdMs = this.slowQueryThresholdMs;
+    if (durationMs > thresholdMs) {
+      this.logger.warn({
+        msg: 'indexer.projection.slow_query',
+        eventType: event.topic,
+        durationMs,
+        ledger: event.ledger,
+      });
+    }
     return true;
+  }
+
+  private get slowQueryThresholdMs(): number {
+    const configured = Number.parseInt(process.env.PROJECTION_SLOW_QUERY_MS ?? '', 10);
+    return Number.isFinite(configured) && configured > 0 ? configured : 200;
   }
 
   private readStringField(
