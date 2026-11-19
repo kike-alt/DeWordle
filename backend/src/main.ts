@@ -9,6 +9,8 @@ import { MetricsService } from './dewordle/metrics/metrics.service';
 import { MetricsInterceptor } from './common/metrics.interceptor';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RequestContextLogger } from './common/request-context-logger';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
 
 const DB_RETRY_ATTEMPTS = 10;
 const DB_RETRY_BASE_DELAY_MS = 2000;
@@ -61,6 +63,8 @@ async function bootstrap() {
     await waitForDatabaseConnection(logger);
 
     const app = await NestFactory.create(AppModule);
+    app.useLogger(new RequestContextLogger());
+    app.useGlobalInterceptors(new RequestLoggingInterceptor());
 
     // Issue #1212: HSTS security headers (max-age=31536000, includeSubDomains).
     applySecurityHeaders(app);

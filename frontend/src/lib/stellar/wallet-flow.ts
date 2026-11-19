@@ -4,6 +4,11 @@ import type { StellarNetwork } from "./network";
 type FreighterApiLike = {
   isConnected?: () => Promise<{ isConnected: boolean }>;
   getAddress?: () => Promise<{ address?: string; error?: string }>;
+  getNetwork?: () => Promise<{
+    network?: string;
+    networkPassphrase?: string;
+    error?: string;
+  }>;
   signTransaction?: (
     transactionXdr: string,
     options: { networkPassphrase: string; address?: string },

@@ -19,6 +19,7 @@ export const ALLOWED_TOPICS = new Set([
   // The rewards contract publishes this event under the topic `claimed`.
   'claimed',
   'achievement_unlocked',
+  'day_published',
 ]);
 
 /** Default max payload byte size; override via INDEXER_MAX_PAYLOAD_BYTES env var. */

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MenuIcon } from './ui/icons/icon';
 import { useAuth } from '../../context/AuthContext';
+import { ActiveNetworkBadge } from './ActiveNetworkBadge';
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -61,6 +62,9 @@ export function MobileMenu({ isAuthenticated }: MobileMenuProps) {
             </div>
 
             <ul className="space-y-4" role="list">
+              <li className="py-2">
+                <ActiveNetworkBadge />
+              </li>
               {navItems.map((item) => (
                 <li key={item.label}>
                   <Link

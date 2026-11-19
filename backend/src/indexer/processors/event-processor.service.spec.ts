@@ -33,14 +33,16 @@ describe('EventProcessorService', () => {
       create: jest.fn((e) => e),
       save: jest.fn().mockResolvedValue({}),
     };
+    const eventEmitter = { emit: jest.fn() };
     const svc = new EventProcessorService(
       eventsRepo as any,
       projectionService,
       {
         process: jest.fn(),
       } as any,
+      eventEmitter as any,
     );
-    return { svc, eventsRepo, projectionService };
+    return { svc, eventsRepo, projectionService, eventEmitter };
   };
 
   it('processes a new event and applies projection', async () => {
@@ -61,6 +63,29 @@ describe('EventProcessorService', () => {
       }),
     );
     expect(projectionService.apply).toHaveBeenCalled();
+  });
+
+  it('emits a day-published event with the contract metadata', async () => {
+    const { svc, eventEmitter } = makeProcessor(false);
+    await svc.process(
+      makeEvent({
+        topic: 'day_published',
+        payload: {
+          dayId: 12,
+          commitmentHash: 'abc123',
+          maxAttempts: 6,
+        },
+      }),
+    );
+
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'day.published',
+      expect.objectContaining({
+        dayId: 12,
+        commitmentHash: 'abc123',
+        maxAttempts: 6,
+      }),
+    );
   });
 
   it('returns false and skips projection for duplicate event', async () => {
@@ -96,6 +121,7 @@ describe('EventProcessorService', () => {
       {
         process: jest.fn(),
       } as any,
+      { emit: jest.fn() } as any,
     );
 
     const first = await svc.process(makeEvent());

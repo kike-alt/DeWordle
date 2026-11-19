@@ -69,6 +69,29 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
     return () => switchListenersRef.current.delete(cb);
   }, []);
 
+  const updateNetworkFromFreighter = useCallback(async () => {
+    const response = await window.freighterApi?.getNetwork?.();
+    if (!response || response.error) return;
+
+    const networkName = response.network?.toLowerCase();
+    const nextNetwork =
+      networkName === "public" || networkName === "mainnet"
+        ? "mainnet"
+        : networkName === "futurenet"
+          ? "futurenet"
+          : networkName === "testnet"
+            ? "testnet"
+            : response.networkPassphrase === STELLAR_NETWORKS.mainnet.passphrase
+              ? "mainnet"
+              : response.networkPassphrase === STELLAR_NETWORKS.futurenet.passphrase
+                ? "futurenet"
+                : response.networkPassphrase === STELLAR_NETWORKS.testnet.passphrase
+                  ? "testnet"
+                  : undefined;
+
+    if (nextNetwork) setNetwork(nextNetwork);
+  }, []);
+
   // Poll Freighter for address changes on tab focus / visibility change.
   // This is the only reliable way to detect Freighter account switches since
   // the extension doesn't emit DOM events when the user switches accounts.
@@ -81,6 +104,7 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
       if (!freighter?.getAddress) return;
 
       try {
+        await updateNetworkFromFreighter();
         const response = await freighter.getAddress();
         if (!response || response.error || !response.address) return;
         const nextAddress = response.address;
@@ -101,7 +125,7 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", checkForAccountSwitch);
       document.removeEventListener("visibilitychange", checkForAccountSwitch);
     };
-  }, [connected, address]);
+  }, [connected, address, updateNetworkFromFreighter]);
 
   const connect = useCallback(async () => {
     if (typeof window === "undefined") {
@@ -134,7 +158,8 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
 
     setConnected(true);
     setAddress(response.address);
-  }, []);
+    await updateNetworkFromFreighter();
+  }, [updateNetworkFromFreighter]);
 
   const disconnect = useCallback(async () => {
     setConnected(false);
