@@ -32,6 +32,7 @@ import { JobModule } from './common/job.module';
 import { DigestModule } from './digest/digest.module';
 import { AdminModule } from './admin/admin.module';
 import { PoolPressureService } from './database/pool-pressure.service';
+import { DatabaseMaintenanceService } from './database/database-maintenance.service';
 
 @Module({
   imports: [
@@ -163,6 +164,7 @@ import { PoolPressureService } from './database/pool-pressure.service';
     CacheLoggerService,
     CacheMetricsService,
     PoolPressureService,
+    DatabaseMaintenanceService,
     {
       provide: 'APP_GUARD',
       useClass: WalletRateLimitGuard,
