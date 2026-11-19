@@ -273,6 +273,18 @@ export class IndexerService {
     for (const [idx, raw] of rawEvents.entries()) {
       const diagnostic = diagnoseMalformedEvent(raw, idx);
       if (diagnostic) {
+        const eventType =
+          raw !== null &&
+          typeof raw === 'object' &&
+          typeof (raw as Record<string, unknown>).topic === 'string'
+            ? String((raw as Record<string, unknown>).topic)
+            : 'unknown';
+        this.eventNormalizer.recordFailure(
+          eventType,
+          diagnostic.missingFields.includes('topic')
+            ? 'missing_topic'
+            : 'schema_validation',
+        );
         this.logger.warn({
           msg: 'indexer.rpc.malformed_event',
           correlationId: cycleContext.correlationId,

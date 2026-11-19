@@ -257,6 +257,33 @@ export class WordsService {
     return word;
   }
 
+  public async getDailyArchive(limit = 100): Promise<
+    { date: string; word: string }[]
+  > {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 365) {
+      throw new BadRequestException('limit must be an integer between 1 and 365');
+    }
+
+    const timezone = process.env.DAILY_WORD_TIMEZONE || 'UTC';
+    const today = moment().tz(timezone).format('YYYY-MM-DD');
+    const words = await this.wordRepo
+      .createQueryBuilder('word')
+      .select('word.dailyDate', 'date')
+      .addSelect('word.word', 'word')
+      .where('word.dailyDate IS NOT NULL')
+      .andWhere('word.dailyDate < :today', { today })
+      .orderBy('word.dailyDate', 'DESC')
+      .limit(limit)
+      .getRawMany<{ date: string | Date; word: string }>();
+
+    return words
+      .reverse()
+      .map(({ date, word }) => ({
+        date: moment(date).format('YYYY-MM-DD'),
+        word,
+      }));
+  }
+
   public async getHealthStatus() {
     const timezone = process.env.DAILY_WORD_TIMEZONE || 'UTC';
     const today = moment().tz(timezone).startOf('day').format('YYYY-MM-DD');

@@ -25,6 +25,7 @@ import {
   EventDedupService,
   RedisEventDedupCache,
 } from './dedup/event-dedup.service';
+import { MetricsModule } from '../dewordle/metrics/metrics.module';
 
 export const INDEXER_REDIS_CLIENT = 'INDEXER_REDIS_CLIENT';
 
@@ -37,6 +38,7 @@ export const INDEXER_REDIS_CLIENT = 'INDEXER_REDIS_CLIENT';
       RegistrySnapshotEntity,
       AuditTrailEntity,
     ]),
+    MetricsModule,
   ],
   controllers: [IndexerController, RewardSummaryController, AuditController],
   providers: [

@@ -108,6 +108,11 @@ const CASES: Record<string, Case> = {
       expected: [{ metadata: { guestId: 'g' } }],
     },
   },
+  AddUserGameStatsStreakIndex1763600000000: {
+    baseline: [
+      `CREATE TABLE "user_game_stats" ("id" SERIAL PRIMARY KEY, "longestStreak" integer, "currentStreak" integer)`,
+    ],
+  },
 };
 
 function discoverMigrations(): { name: string; file: string; cls: new () => MigrationInterface }[] {
