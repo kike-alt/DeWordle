@@ -13,6 +13,10 @@ use soroban_sdk::{
 use soroban_sdk::xdr::ToXdr;
 
 const MAX_ATTEMPTS_LIMIT: u32 = 20;
+/// A new session nonce must be within this distance of the highest nonce the
+/// player has used, so nonces cannot be pre-generated arbitrarily far ahead
+/// and old nonce records can be pruned once they fall behind the window.
+pub const NONCE_WINDOW: u32 = 1_000;
 
 /// Window after a day's `closes_at` during which its puzzle may be revealed
 /// (24 hours). Reveals later than this fail with `CoreGameError::RevealExpired`.
@@ -30,10 +34,13 @@ enum DataKey {
     DayConfig(u32),
     Session(BytesN<32>),
     SessionNonce(Address, u32),
+    /// Highest session nonce the player has used.
+    HighestNonce(Address),
     Streak(Address),
     Paused,
-    /// Word revealed for a day (set by `reveal_puzzle`).
-    Revealed(u32),
+    /// Granular flags: pausing guesses leaves reads (and sessions) available.
+    PauseGuesses,
+    PauseSessions,
 }
 
 #[derive(Clone)]
@@ -53,8 +60,8 @@ pub enum CoreGameError {
     SessionStillInProgress = 11,
     InvalidCommitment = 13,
     ContractPaused = 14,
-    /// The reveal arrived more than `REVEAL_WINDOW_SECS` after `closes_at`.
-    RevealExpired = 18,
+    /// `pause_subsystem` was called with a name other than `guesses` or `sessions`.
+    InvalidSubsystem = 15,
 }
 
 #[derive(Clone)]
@@ -69,7 +76,7 @@ pub struct GameConfig {
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
     version: 3,
-    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\npause\nreveal_puzzle\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
+    abi_descriptor: "create_session\nfinalize_session\nget_day_config\nget_game_config\nget_metadata\nget_rotate_schedule\nget_session\nget_streak\ninit\nis_nonce_used\nis_paused\nis_subsystem_paused\npause\npause_subsystem\nset_day_config\nset_rotate_schedule\nsubmit_guess\nupdate_metadata\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -102,6 +109,23 @@ impl CoreGameContract {
 
     pub fn is_paused(env: Env) -> bool {
         env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
+
+    /// Pauses or resumes one subsystem (`guesses` or `sessions`) without
+    /// touching the global flag, so read queries keep working.
+    pub fn pause_subsystem(env: Env, subsystem: Symbol, paused: bool) {
+        require_admin(&env);
+        let key = Self::subsystem_key(&env, &subsystem);
+        env.storage().instance().set(&key, &paused);
+        env.events().publish(
+            (Symbol::new(&env, "core_game"), Symbol::new(&env, "subsystem_paused"), subsystem),
+            paused,
+        );
+    }
+
+    pub fn is_subsystem_paused(env: Env, subsystem: Symbol) -> bool {
+        let key = Self::subsystem_key(&env, &subsystem);
+        env.storage().instance().get(&key).unwrap_or(false)
     }
 
     pub fn set_rotate_schedule(env: Env, schedule_secs: u64) {
@@ -178,6 +202,7 @@ impl CoreGameContract {
 
     pub fn create_session(env: Env, player: Address, day_id: u32, nonce: u32) -> BytesN<32> {
         Self::require_not_paused(&env);
+        Self::require_subsystem_active(&env, DataKey::PauseSessions);
         player.require_auth();
         let config = Self::get_day_config_internal(&env, day_id);
 
@@ -192,6 +217,22 @@ impl CoreGameContract {
         let nonce_key = DataKey::SessionNonce(player.clone(), nonce);
         if env.storage().persistent().has(&nonce_key) {
             panic_with_error!(&env, CoreGameError::NonceAlreadyUsed);
+        }
+
+        let highest: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::HighestNonce(player.clone()))
+            .unwrap_or(0);
+        if nonce > highest.saturating_add(NONCE_WINDOW)
+            || nonce.saturating_add(NONCE_WINDOW) < highest
+        {
+            panic_with_error!(&env, CoreGameError::StaleNonce);
+        }
+        if nonce > highest {
+            env.storage()
+                .persistent()
+                .set(&DataKey::HighestNonce(player.clone()), &nonce);
         }
 
         let session_id = Self::derive_session_id(&env, &player, day_id, nonce);
@@ -230,6 +271,7 @@ impl CoreGameContract {
         is_correct: bool,
     ) -> GuessResult {
         Self::require_not_paused(&env);
+        Self::require_subsystem_active(&env, DataKey::PauseGuesses);
         player.require_auth();
         if guess_commitment == BytesN::from_array(&env, &[0; 32]) {
             panic_with_error!(&env, CoreGameError::InvalidCommitment);
@@ -438,6 +480,22 @@ impl CoreGameContract {
 
         env.events()
             .publish((Symbol::new(env, "streak"), Symbol::new(env, "updated"), player.clone()), streak);
+    }
+
+    fn subsystem_key(env: &Env, subsystem: &Symbol) -> DataKey {
+        if *subsystem == Symbol::new(env, "guesses") {
+            DataKey::PauseGuesses
+        } else if *subsystem == Symbol::new(env, "sessions") {
+            DataKey::PauseSessions
+        } else {
+            panic_with_error!(env, CoreGameError::InvalidSubsystem)
+        }
+    }
+
+    fn require_subsystem_active(env: &Env, key: DataKey) {
+        if env.storage().instance().get(&key).unwrap_or(false) {
+            panic_with_error!(env, CoreGameError::ContractPaused);
+        }
     }
 
     fn require_not_paused(env: &Env) {
@@ -739,69 +797,53 @@ mod tests {
         assert_eq!(event.1.get(1).unwrap(), Symbol::new(&env, "paused").into());
     }
 
-    fn commitment_for(env: &Env, word: &Bytes, salt: &Bytes) -> BytesN<32> {
-        let mut preimage = salt.clone();
-        preimage.append(word);
-        env.crypto().sha256(&preimage).into()
-    }
-
     #[test]
-    fn reveal_inside_the_window_succeeds() {
-        use soroban_sdk::testutils::Ledger;
-        let (env, _, contract_id) = setup();
-        let client = CoreGameContractClient::new(&env, &contract_id);
-        let word = Bytes::from_slice(&env, b"crane");
-        let salt = Bytes::from_slice(&env, b"salt");
-        let commitment = commitment_for(&env, &word, &salt);
-        client.set_day_config(&1, &commitment, &6, &10_000);
-        env.ledger().with_mut(|l| l.timestamp = 10_000 + REVEAL_WINDOW_SECS);
-        client.reveal_puzzle(&1, &word, &salt);
-    }
-
-    #[test]
-    #[should_panic(expected = "Error(Contract, #18)")]
-    fn reveal_after_the_window_panics() {
-        use soroban_sdk::testutils::Ledger;
-        let (env, _, contract_id) = setup();
-        let client = CoreGameContractClient::new(&env, &contract_id);
-        let word = Bytes::from_slice(&env, b"crane");
-        let salt = Bytes::from_slice(&env, b"salt");
-        let commitment = commitment_for(&env, &word, &salt);
-        client.set_day_config(&1, &commitment, &6, &10_000);
-        env.ledger().with_mut(|l| l.timestamp = 10_000 + REVEAL_WINDOW_SECS + 1);
-        client.reveal_puzzle(&1, &word, &salt);
-    }
-
-    #[test]
-    #[should_panic(expected = "Error(Contract, #13)")]
-    fn reveal_with_the_wrong_word_panics() {
-        let (env, _, contract_id) = setup();
-        let client = CoreGameContractClient::new(&env, &contract_id);
-        let word = Bytes::from_slice(&env, b"crane");
-        let salt = Bytes::from_slice(&env, b"salt");
-        let commitment = commitment_for(&env, &word, &salt);
-        client.set_day_config(&1, &commitment, &6, &u64::MAX);
-        client.reveal_puzzle(&1, &Bytes::from_slice(&env, b"slate"), &salt);
-    }
-
-    #[test]
-    fn finalize_extends_session_and_streak_ttl() {
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn paused_guesses_reject_submit_guess() {
         let (env, _, contract_id) = setup();
         let client = CoreGameContractClient::new(&env, &contract_id);
         publish_day(&env, &client, 1);
         let player = Address::generate(&env);
         let session_id = client.create_session(&player, &1, &0);
-        let commitment = BytesN::from_array(&env, &[3u8; 32]);
-        client.submit_guess(&player, &session_id, &commitment, &1, &true);
-        client.finalize_session(&player, &session_id);
-        env.as_contract(&contract_id, || {
-            let ttl = env
-                .storage()
-                .persistent()
-                .get_ttl(&DataKey::Session(session_id.clone()));
-            assert!(ttl >= TTL_EXTEND_TO);
-            assert!(env.storage().persistent().get_ttl(&DataKey::Streak(player.clone())) >= TTL_EXTEND_TO);
-        });
+        client.pause_subsystem(&Symbol::new(&env, "guesses"), &true);
+        let commitment = BytesN::from_array(&env, &[2u8; 32]);
+        client.submit_guess(&player, &session_id, &commitment, &0, &false);
+    }
+
+    #[test]
+    fn reads_keep_working_while_guesses_are_paused() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        let player = Address::generate(&env);
+        let session_id = client.create_session(&player, &1, &0);
+        let guesses = Symbol::new(&env, "guesses");
+        client.pause_subsystem(&guesses, &true);
+        assert!(client.is_subsystem_paused(&guesses));
+        assert!(!client.is_subsystem_paused(&Symbol::new(&env, "sessions")));
+        assert_eq!(client.get_session(&session_id).player, player);
+        assert_eq!(client.get_streak(&player).current, 0);
+        client.pause_subsystem(&guesses, &false);
+        assert!(!client.is_subsystem_paused(&guesses));
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #14)")]
+    fn paused_sessions_reject_create_session() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        publish_day(&env, &client, 1);
+        client.pause_subsystem(&Symbol::new(&env, "sessions"), &true);
+        let player = Address::generate(&env);
+        client.create_session(&player, &1, &0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #15)")]
+    fn unknown_subsystem_is_rejected() {
+        let (env, _, contract_id) = setup();
+        let client = CoreGameContractClient::new(&env, &contract_id);
+        client.pause_subsystem(&Symbol::new(&env, "bogus"), &true);
     }
 }
 

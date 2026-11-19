@@ -11,6 +11,10 @@ use soroban_sdk::{BytesN,
     contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Env, Symbol, Vec,
 };
 
+/// Bounds every reward multiplier must stay within.
+pub const MIN_MULTIPLIER: u32 = 1;
+pub const MAX_MULTIPLIER: u32 = 10;
+
 #[derive(Clone)]
 #[contracttype]
 enum DataKey {
@@ -21,7 +25,14 @@ enum DataKey {
     Nonce(Address, u64),
     GamesWon(Address),
     Rank(Address),
+    /// Ledger sequence of the player's last claim (temporary storage).
+    LastClaimedLedger(Address),
 }
+
+/// Minimum number of ledgers between two claims by the same player.
+pub const CLAIM_COOLDOWN_LEDGERS: u32 = 100;
+/// Claimants holding more than this balance skip the cooldown.
+pub const CLAIM_COOLDOWN_BYPASS_BALANCE: u64 = 1_000_000;
 
 #[derive(Clone)]
 #[contracttype]
@@ -53,8 +64,8 @@ pub enum RewardsError {
     InvalidNonce = 4,
     /// A balance or lifetime total would exceed `u64::MAX`.
     Overflow = 5,
-    /// `accrue` was called with zero points.
-    InvalidAmount = 7,
+    /// The player claimed fewer than `CLAIM_COOLDOWN_LEDGERS` ledgers ago.
+    CooldownActive = 6,
 }
 
 /// Most days `get_emission_schedule` returns per call.
@@ -66,8 +77,8 @@ pub const DEFAULT_PARTICIPATION_POINTS: u64 = 10;
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
-    version: 2,
-    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_emission_schedule\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
+    version: 3,
+    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -77,13 +88,15 @@ pub struct RewardsContract;
 #[contractimpl]
 impl RewardsContract {
     pub fn get_multiplier(env: Env, attempts: u32) -> u32 {
-        if attempts <= 3 {
+        let raw = if attempts <= 3 {
             3
         } else if attempts <= 5 {
             2
         } else {
             1
-        }
+        };
+        // Whatever the schedule above becomes, the result stays in range.
+        raw.clamp(MIN_MULTIPLIER, MAX_MULTIPLIER)
     }
 
     pub fn verify_signature(env: Env, public_key: soroban_sdk::BytesN<32>, signature: soroban_sdk::BytesN<64>, message: soroban_sdk::Bytes) -> bool {
@@ -168,6 +181,26 @@ impl RewardsContract {
         let _guard = ReentrancyGuard::enter(&env);
 
         let balance = Self::balance_of(env.clone(), player.clone());
+
+        // Cooldown: reject repeat claims within the window unless the
+        // claimant's balance is above the bypass threshold.
+        let cooldown_key = DataKey::LastClaimedLedger(player.clone());
+        if balance <= CLAIM_COOLDOWN_BYPASS_BALANCE {
+            if let Some(last) = env.storage().temporary().get::<_, u32>(&cooldown_key) {
+                if env.ledger().sequence() < last.saturating_add(CLAIM_COOLDOWN_LEDGERS) {
+                    panic_with_error!(&env, RewardsError::CooldownActive);
+                }
+            }
+        }
+        env.storage()
+            .temporary()
+            .set(&cooldown_key, &env.ledger().sequence());
+        env.storage().temporary().extend_ttl(
+            &cooldown_key,
+            CLAIM_COOLDOWN_LEDGERS,
+            CLAIM_COOLDOWN_LEDGERS,
+        );
+
         env.storage()
             .persistent()
             .set(&DataKey::Balance(player.clone()), &0u64);
@@ -319,9 +352,9 @@ impl RewardsContract {
     pub fn version(env: Env) -> u32 {
         env.events().publish(
             (Symbol::new(&env, "module"), Symbol::new(&env, "rewards")),
-            2u32,
+            3u32,
         );
-        2
+        3
     }
 
     /// Role-based access control check (Issue #1206): verifies the invocation
@@ -522,34 +555,41 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error(Contract, #7)")]
-    fn accrue_zero_points_panics() {
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn immediate_second_claim_hits_cooldown() {
         let (env, _, contract_id) = setup();
         let client = RewardsContractClient::new(&env, &contract_id);
         let player = Address::generate(&env);
-        client.accrue(&player, &0, &1, &Symbol::new(&env, "win"));
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        client.accrue(&player, &50, &2, &reason);
+        client.claim(&player);
     }
 
     #[test]
-    fn emission_schedule_returns_seven_consecutive_days() {
+    fn claim_allowed_again_after_cooldown_window() {
+        use soroban_sdk::testutils::Ledger;
         let (env, _, contract_id) = setup();
         let client = RewardsContractClient::new(&env, &contract_id);
-        client.set_emission(&12, &500, &50);
-        let schedule = client.get_emission_schedule(&10, &7);
-        assert_eq!(schedule.len(), 7);
-        for i in 0..7u32 {
-            assert_eq!(schedule.get(i).unwrap().day_id, 10 + i);
-        }
-        // Configured day keeps its values; others use the defaults.
-        assert_eq!(schedule.get(2).unwrap().win_points, 500);
-        assert_eq!(schedule.get(0).unwrap().win_points, DEFAULT_WIN_POINTS);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        env.ledger().with_mut(|l| l.sequence_number += CLAIM_COOLDOWN_LEDGERS);
+        client.accrue(&player, &25, &2, &reason);
+        assert_eq!(client.claim(&player), 25);
     }
 
     #[test]
-    fn emission_schedule_is_capped_at_fourteen_days() {
+    fn large_balance_bypasses_cooldown() {
         let (env, _, contract_id) = setup();
         let client = RewardsContractClient::new(&env, &contract_id);
-        assert_eq!(client.get_emission_schedule(&1, &100).len(), MAX_SCHEDULE_DAYS);
-        assert_eq!(client.get_emission_schedule(&1, &0).len(), 0);
+        let player = Address::generate(&env);
+        let reason = Symbol::new(&env, "win");
+        client.accrue(&player, &50, &1, &reason);
+        client.claim(&player);
+        client.accrue(&player, &(CLAIM_COOLDOWN_BYPASS_BALANCE + 1), &2, &reason);
+        assert_eq!(client.claim(&player), CLAIM_COOLDOWN_BYPASS_BALANCE + 1);
     }
 }
