@@ -9,7 +9,7 @@ jobs:
     # #1695: fail if secret or private keys exist anywhere in git history
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Scan history for private keys and secrets
@@ -22,7 +22,7 @@ jobs:
     # #1696: new source files must carry a license header
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Check added source files
@@ -39,7 +39,7 @@ jobs:
     # #1698: no stray console.log in the production frontend bundle
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 20
