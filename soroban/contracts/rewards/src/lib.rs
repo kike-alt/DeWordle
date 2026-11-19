@@ -11,6 +11,10 @@ use soroban_sdk::{BytesN,
     contract, contracterror, contractimpl, contracttype, panic_with_error, Address, Env, Symbol,
 };
 
+/// Bounds every reward multiplier must stay within.
+pub const MIN_MULTIPLIER: u32 = 1;
+pub const MAX_MULTIPLIER: u32 = 10;
+
 #[derive(Clone)]
 #[contracttype]
 enum DataKey {
@@ -67,7 +71,7 @@ pub enum RewardsError {
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
-    version: 2,
+    version: 3,
     abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
     min_sdk_version: "0.1.0",
 };
@@ -78,13 +82,15 @@ pub struct RewardsContract;
 #[contractimpl]
 impl RewardsContract {
     pub fn get_multiplier(env: Env, attempts: u32) -> u32 {
-        if attempts <= 3 {
+        let raw = if attempts <= 3 {
             3
         } else if attempts <= 5 {
             2
         } else {
             1
-        }
+        };
+        // Whatever the schedule above becomes, the result stays in range.
+        raw.clamp(MIN_MULTIPLIER, MAX_MULTIPLIER)
     }
 
     pub fn verify_signature(env: Env, public_key: soroban_sdk::BytesN<32>, signature: soroban_sdk::BytesN<64>, message: soroban_sdk::Bytes) -> bool {
@@ -314,9 +320,9 @@ impl RewardsContract {
     pub fn version(env: Env) -> u32 {
         env.events().publish(
             (Symbol::new(&env, "module"), Symbol::new(&env, "rewards")),
-            2u32,
+            3u32,
         );
-        2
+        3
     }
 
     /// Role-based access control check (Issue #1206): verifies the invocation

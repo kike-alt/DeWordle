@@ -232,9 +232,9 @@ impl AchievementsContract {
     pub fn version(env: Env) -> u32 {
         env.events().publish(
             (Symbol::new(&env, "module"), Symbol::new(&env, "achievements")),
-            2u32,
+            3u32,
         );
-        2
+        3
     }
 
     fn require_admin(env: &Env) {

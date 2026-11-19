@@ -13,6 +13,10 @@ use soroban_sdk::{
 use soroban_sdk::xdr::ToXdr;
 
 const MAX_ATTEMPTS_LIMIT: u32 = 20;
+/// A new session nonce must be within this distance of the highest nonce the
+/// player has used, so nonces cannot be pre-generated arbitrarily far ahead
+/// and old nonce records can be pruned once they fall behind the window.
+pub const NONCE_WINDOW: u32 = 1_000;
 
 #[derive(Clone)]
 #[contracttype]
@@ -20,6 +24,8 @@ enum DataKey {
     DayConfig(u32),
     Session(BytesN<32>),
     SessionNonce(Address, u32),
+    /// Highest session nonce the player has used.
+    HighestNonce(Address),
     Streak(Address),
     Paused,
     /// Granular flags: pausing guesses leaves reads (and sessions) available.
@@ -177,6 +183,22 @@ impl CoreGameContract {
         let nonce_key = DataKey::SessionNonce(player.clone(), nonce);
         if env.storage().persistent().has(&nonce_key) {
             panic_with_error!(&env, CoreGameError::NonceAlreadyUsed);
+        }
+
+        let highest: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::HighestNonce(player.clone()))
+            .unwrap_or(0);
+        if nonce > highest.saturating_add(NONCE_WINDOW)
+            || nonce.saturating_add(NONCE_WINDOW) < highest
+        {
+            panic_with_error!(&env, CoreGameError::StaleNonce);
+        }
+        if nonce > highest {
+            env.storage()
+                .persistent()
+                .set(&DataKey::HighestNonce(player.clone()), &nonce);
         }
 
         let session_id = Self::derive_session_id(&env, &player, day_id, nonce);
