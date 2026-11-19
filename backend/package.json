@@ -59,7 +59,7 @@
     "class-validator": "^0.14.2",
     "date-fns": "^4.1.0",
     "ioredis": "^5.11.1",
-    "moment-timezone": "^0.6.0",
+    "moment-timezone": "^0.6.5",
     "nodemailer": "^9.0.1",
     "opossum": "^10.0.0",
     "passport": "^0.7.0",
