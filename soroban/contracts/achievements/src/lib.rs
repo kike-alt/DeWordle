@@ -49,7 +49,7 @@ pub enum AchievementsError {
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
-    version: 2,
+    version: 3,
     abi_descriptor: "define\nget_definition\nget_metadata\nget_spec_metadata\nget_unlocked\ninit\nunlock\nupdate_metadata\nversion",
     min_sdk_version: "0.1.0",
 };
@@ -165,9 +165,9 @@ impl AchievementsContract {
     pub fn version(env: Env) -> u32 {
         env.events().publish(
             (Symbol::new(&env, "module"), Symbol::new(&env, "achievements")),
-            2u32,
+            3u32,
         );
-        2
+        3
     }
 
     fn require_admin(env: &Env) {
