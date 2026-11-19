@@ -9,6 +9,43 @@ import {
 import { Api, Server, assembleTransaction } from "@stellar/stellar-sdk/rpc";
 import { withRetry, type RetryOptions, type SorobanNetworkConfig } from "./network";
 
+/** What a lifecycle callback receives about a transaction. */
+export interface TxLogInfo {
+  /** Contract method being invoked. */
+  operation: string;
+  /** Decoded call arguments. */
+  params: unknown[];
+  /** Size of the transaction envelope XDR in bytes. */
+  xdrSize: number;
+}
+
+/** Lifecycle hooks for debugging transaction assembly. All optional. */
+export interface TxLogger {
+  onBuildStart?(info: Omit<TxLogInfo, "xdrSize">): void;
+  onSimulated?(info: TxLogInfo): void;
+  onSigned?(info: TxLogInfo): void;
+}
+
+export interface TxBuilderOptions {
+  /** Defaults to a no-op so production consoles stay quiet. */
+  logger?: TxLogger;
+}
+
+export const noopTxLogger: TxLogger = {};
+
+/** Describes the first contract call in `tx` (method, decoded args, XDR size). */
+export function describeTx(tx: Transaction): TxLogInfo {
+  const op = tx.operations[0] as unknown as {
+    func?: { invokeContract?: () => { functionName(): Buffer | string; args(): xdr.ScVal[] } };
+  };
+  const call = op?.func?.invokeContract?.();
+  return {
+    operation: call ? call.functionName().toString() : "unknown",
+    params: call ? call.args().map((a) => scValToNative(a)) : [],
+    xdrSize: Buffer.from(tx.toXDR(), "base64").length,
+  };
+}
+
 export async function buildContractTx(params: {
   server: Server;
   source: Account;
@@ -17,7 +54,12 @@ export async function buildContractTx(params: {
   method: string;
   args?: xdr.ScVal[];
   fee?: string;
+  logger?: TxLogger;
 }) {
+  (params.logger ?? noopTxLogger).onBuildStart?.({
+    operation: params.method,
+    params: (params.args ?? []).map((a) => scValToNative(a)),
+  });
   const contract = new Contract(params.contractId);
   const tx = new TransactionBuilder(params.source, {
     fee: params.fee ?? "100",
@@ -39,6 +81,7 @@ export async function simulateAndAssemble(params: {
   if (Api.isSimulationError(simulated)) {
     throw new Error(`Simulation failed: ${simulated.error}`);
   }
+  (params.logger ?? noopTxLogger).onSimulated?.(describeTx(params.tx));
 
   const assembled = assembleTransaction(params.tx, simulated).build();
   return { simulated, assembled };
@@ -174,11 +217,13 @@ export async function submitSignedTx(params: {
   signedXdr: string;
   maxAttempts?: number;
   intervalMs?: number;
+  logger?: TxLogger;
 }): Promise<TxPollResult> {
   const { server, signedXdr, maxAttempts, intervalMs } = params;
 
   const { TransactionBuilder } = await import("@stellar/stellar-sdk");
   const tx = TransactionBuilder.fromXDR(signedXdr, "any") as Transaction;
+  (params.logger ?? noopTxLogger).onSigned?.(describeTx(tx));
 
   const sent = await submitTransaction({ server, tx });
 
