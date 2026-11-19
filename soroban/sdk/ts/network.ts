@@ -158,3 +158,62 @@ export async function loadContractRegistry(
 
   return registry;
 }
+
+// --- Retry with exponential backoff (transient RPC failures) ---
+
+export interface RetryOptions {
+  /** Retries after the first attempt (default 3). */
+  maxRetries?: number;
+  /** Delay before the first retry in ms; doubles each retry (default 500). */
+  initialDelayMs?: number;
+  /** Returns a value in [0, 1) used for jitter (default Math.random). */
+  random?: () => number;
+  /** Replaceable for tests. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+
+/** HTTP status carried by an error (`status`, `statusCode`, `response.status`) or named in its message. */
+function errorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const e = error as { status?: unknown; statusCode?: unknown; response?: { status?: unknown }; message?: unknown };
+  for (const candidate of [e.status, e.statusCode, e.response?.status]) {
+    if (typeof candidate === "number") return candidate;
+  }
+  const match = typeof e.message === "string" ? e.message.match(/\b(4\d\d|5\d\d)\b/) : null;
+  return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * True for transient failures (HTTP 429, 502, 503, 504). Deterministic
+ * rejections such as HTTP 400 or "Simulation failed" are never retried.
+ */
+export function isTransientRpcError(error: unknown): boolean {
+  if (error instanceof Error && /^Simulation failed/.test(error.message)) return false;
+  const status = errorStatus(error);
+  return status !== undefined && RETRYABLE_STATUS.has(status);
+}
+
+/**
+ * Runs `fn`, retrying transient errors with exponential backoff and jitter
+ * (500ms, 1s, 2s by default, each plus up to 50% random jitter).
+ */
+export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+  const {
+    maxRetries = 3,
+    initialDelayMs = 500,
+    random = Math.random,
+    sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  } = options;
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt >= maxRetries || !isTransientRpcError(error)) throw error;
+      const base = initialDelayMs * 2 ** attempt;
+      await sleep(base + Math.floor(base * 0.5 * random()));
+    }
+  }
+}
