@@ -1,3 +1,5 @@
+import { scValToNative, xdr } from "@stellar/stellar-sdk";
+
 export interface DecodedEvent<T = unknown> {
   contractId: string;
   topic: string;
@@ -185,4 +187,104 @@ export function resolveEventFamily(
   if (isAchievementsEvent(t)) return "achievements";
   if (isAdminRegistryEvent(t)) return "admin_registry";
   return "unknown";
+}
+
+// --- Typed `session_started` subscription ---
+
+/** Decoded `("session", "started", player, day_id)` event with `session_id` payload. */
+export interface SessionStartedEvent {
+  player: string;
+  dayId: number;
+  /** Hex-encoded 32-byte session id. */
+  sessionId: string;
+  contractId?: string;
+  ledger?: number;
+}
+
+/** A raw RPC event: topics/value as `xdr.ScVal` or base64 XDR strings. */
+export interface RawChainEvent {
+  contractId?: string;
+  ledger?: number;
+  topic: Array<xdr.ScVal | string>;
+  value: xdr.ScVal | string;
+}
+
+const toScVal = (v: xdr.ScVal | string): xdr.ScVal =>
+  typeof v === "string" ? xdr.ScVal.fromXDR(v, "base64") : v;
+
+/**
+ * Decodes a raw `session_started` event into a typed object. Returns null for
+ * any other event or a malformed one; it never throws.
+ */
+export function decodeSessionStartedEvent(raw: RawChainEvent): SessionStartedEvent | null {
+  try {
+    if (raw.topic.length < 4) return null;
+    const [family, name, player, dayId] = raw.topic.map((t) => scValToNative(toScVal(t)));
+    if (family !== "session" || name !== "started") return null;
+    const sessionId = scValToNative(toScVal(raw.value));
+    if (typeof player !== "string" || !(sessionId instanceof Uint8Array)) return null;
+    return {
+      player,
+      dayId: Number(dayId),
+      sessionId: Buffer.from(sessionId).toString("hex"),
+      contractId: raw.contractId,
+      ledger: raw.ledger,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface SessionStartedSubscriptionOptions {
+  /** Fetches events newer than `cursor` (the transport is up to the caller). */
+  fetchEvents: (cursor?: string) => Promise<{ events: RawChainEvent[]; cursor?: string }>;
+  /** Poll interval in ms (default 5000). */
+  intervalMs?: number;
+  /** Only deliver events for this player. */
+  player?: string;
+  /** Only deliver events for this day. */
+  dayId?: number;
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * Polls for `session_started` events and invokes `callback` with decoded,
+ * typed events. Returns an `unsubscribe` function that stops polling.
+ */
+export function subscribeSessionStarted(
+  callback: (event: SessionStartedEvent) => void,
+  options: SessionStartedSubscriptionOptions,
+): () => void {
+  const { fetchEvents, intervalMs = 5000, player, dayId, onError } = options;
+  let cursor: string | undefined;
+  let stopped = false;
+  let inFlight = false;
+
+  const poll = async () => {
+    if (stopped || inFlight) return;
+    inFlight = true;
+    try {
+      const result = await fetchEvents(cursor);
+      if (stopped) return;
+      cursor = result.cursor ?? cursor;
+      for (const raw of result.events) {
+        const event = decodeSessionStartedEvent(raw);
+        if (!event) continue;
+        if (player !== undefined && event.player !== player) continue;
+        if (dayId !== undefined && event.dayId !== dayId) continue;
+        callback(event);
+      }
+    } catch (error) {
+      onError?.(error);
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  void poll();
+  const timer = setInterval(poll, intervalMs);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 }
