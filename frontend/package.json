@@ -21,7 +21,7 @@
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
-    "@stellar/stellar-sdk": "^13.3.0",
+    "@stellar/stellar-sdk": "^17.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dicebear": "^9.2.4",
