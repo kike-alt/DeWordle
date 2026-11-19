@@ -11,6 +11,8 @@ enum DataKey {
     Admin,
     Contract(Symbol),
     Role(Symbol, Address),
+    /// WASM hash staged for a contract key but not yet applied.
+    UpgradeProposal(Symbol),
 }
 
 #[derive(Clone)]
@@ -27,8 +29,8 @@ pub enum AdminRegistryError {
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
-    version: 2,
-    abi_descriptor: "get_admin\nget_contract\nget_metadata\nhas_role\ninit\nset_contract\nset_role\nupdate_metadata\nverify_authorized\nversion",
+    version: 3,
+    abi_descriptor: "get_admin\nget_contract\nget_metadata\nget_upgrade_proposal\nhas_role\ninit\nset_contract\nset_role\nstage_upgrade\nupdate_metadata\nverify_authorized\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -54,6 +56,24 @@ impl AdminRegistryContract {
             .persistent()
             .set(&DataKey::Contract(key.clone()), &contract_address);
         env.events().publish((Symbol::new(&env, "contract_set"), key), contract_address);
+    }
+
+    /// Admin-only: stages a WASM hash for `contract_key` so the pending
+    /// upgrade can be inspected before it is applied.
+    pub fn stage_upgrade(env: Env, contract_key: Symbol, wasm_hash: BytesN<32>) {
+        Self::require_admin(&env);
+        env.storage()
+            .persistent()
+            .set(&DataKey::UpgradeProposal(contract_key.clone()), &wasm_hash);
+        env.events()
+            .publish((Symbol::new(&env, "upgrade_staged"), contract_key), wasm_hash);
+    }
+
+    /// The pending WASM hash staged for `contract_key`, or `None`.
+    pub fn get_upgrade_proposal(env: Env, contract_key: Symbol) -> Option<BytesN<32>> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::UpgradeProposal(contract_key))
     }
 
     pub fn get_contract(env: Env, key: Symbol) -> Address {
@@ -111,9 +131,9 @@ impl AdminRegistryContract {
     pub fn version(env: Env) -> u32 {
         env.events().publish(
             (Symbol::new(&env, "module"), Symbol::new(&env, "admin_registry")),
-            2u32,
+            3u32,
         );
-        2
+        3
     }
 
     pub fn verify_authorized(env: Env, caller: Address) -> Result<(), AdminRegistryError> {
@@ -214,5 +234,29 @@ mod tests {
         let contract_id = env.register(AdminRegistryContract, ());
         let client = AdminRegistryContractClient::new(&env, &contract_id);
         client.get_admin();
+    }
+
+    #[test]
+    fn upgrade_proposal_is_none_until_staged_then_returned() {
+        let (env, _, contract_id) = setup();
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        let key = Symbol::new(&env, "core_game");
+        assert_eq!(client.get_upgrade_proposal(&key), None);
+        let hash = BytesN::from_array(&env, &[9u8; 32]);
+        client.stage_upgrade(&key, &hash);
+        assert_eq!(client.get_upgrade_proposal(&key), Some(hash));
+        // Other keys are unaffected.
+        assert_eq!(client.get_upgrade_proposal(&Symbol::new(&env, "rewards")), None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn staging_an_upgrade_requires_admin_auth() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let contract_id = env.register(AdminRegistryContract, ());
+        let client = AdminRegistryContractClient::new(&env, &contract_id);
+        client.init(&admin);
+        client.stage_upgrade(&Symbol::new(&env, "core_game"), &BytesN::from_array(&env, &[1u8; 32]));
     }
 }

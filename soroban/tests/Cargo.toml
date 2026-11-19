@@ -17,3 +17,7 @@ dewordle-types = { path = "../crates/dewordle-types" }
 [[test]]
 name = "cross_contract_harness"
 path = "integration/cross_contract_harness.rs"
+
+[[test]]
+name = "metadata_version_parity"
+path = "integration/metadata_version_parity.rs"

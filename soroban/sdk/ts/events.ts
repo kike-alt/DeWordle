@@ -1,3 +1,5 @@
+import { scValToNative, xdr } from "@stellar/stellar-sdk";
+
 export interface DecodedEvent<T = unknown> {
   contractId: string;
   topic: string;
@@ -187,72 +189,102 @@ export function resolveEventFamily(
   return "unknown";
 }
 
-// --- Runtime type guards for decoded core_game events ---
+// --- Typed `session_started` subscription ---
 
-export interface GuessResultPayload {
-  attemptNo: number;
-  outcomeCode: number;
-  isCorrect: boolean;
+/** Decoded `("session", "started", player, day_id)` event with `session_id` payload. */
+export interface SessionStartedEvent {
+  player: string;
+  dayId: number;
+  /** Hex-encoded 32-byte session id. */
+  sessionId: string;
+  contractId?: string;
+  ledger?: number;
 }
 
-/** `session_started`: payload is the hex session id. */
-export type SessionStartedPayload = string;
-/** `guess_submitted`: the guess commitment plus the guess result. */
-export interface GuessSubmittedPayload {
-  guessCommitment: string;
-  result: GuessResultPayload;
-}
-/** `session_finalized`: payload is the player's address. */
-export type SessionFinalizedPayload = string;
-/** `streak_updated`: the player's streak counters. */
-export interface StreakUpdatedPayload {
-  current: number;
-  max: number;
-  lastDayPlayed: number;
+/** A raw RPC event: topics/value as `xdr.ScVal` or base64 XDR strings. */
+export interface RawChainEvent {
+  contractId?: string;
+  ledger?: number;
+  topic: Array<xdr.ScVal | string>;
+  value: xdr.ScVal | string;
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
-const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v.length > 0;
-const isUint = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
-const pick = (o: Record<string, unknown>, camel: string, snake: string) => o[camel] ?? o[snake];
+const toScVal = (v: xdr.ScVal | string): xdr.ScVal =>
+  typeof v === "string" ? xdr.ScVal.fromXDR(v, "base64") : v;
 
-function isDecodedEvent(value: unknown, topic: string): value is DecodedEvent {
-  return (
-    isRecord(value) &&
-    isNonEmptyString(value["contractId"]) &&
-    typeof value["topic"] === "string" &&
-    normalizeTopic(value["topic"]) === topic &&
-    "payload" in value
-  );
+/**
+ * Decodes a raw `session_started` event into a typed object. Returns null for
+ * any other event or a malformed one; it never throws.
+ */
+export function decodeSessionStartedEvent(raw: RawChainEvent): SessionStartedEvent | null {
+  try {
+    if (raw.topic.length < 4) return null;
+    const [family, name, player, dayId] = raw.topic.map((t) => scValToNative(toScVal(t)));
+    if (family !== "session" || name !== "started") return null;
+    const sessionId = scValToNative(toScVal(raw.value));
+    if (typeof player !== "string" || !(sessionId instanceof Uint8Array)) return null;
+    return {
+      player,
+      dayId: Number(dayId),
+      sessionId: Buffer.from(sessionId).toString("hex"),
+      contractId: raw.contractId,
+      ledger: raw.ledger,
+    };
+  } catch {
+    return null;
+  }
 }
 
-export function isSessionStartedEvent(value: unknown): value is DecodedEvent<SessionStartedPayload> {
-  return isDecodedEvent(value, "session_started") && isNonEmptyString(value.payload);
+export interface SessionStartedSubscriptionOptions {
+  /** Fetches events newer than `cursor` (the transport is up to the caller). */
+  fetchEvents: (cursor?: string) => Promise<{ events: RawChainEvent[]; cursor?: string }>;
+  /** Poll interval in ms (default 5000). */
+  intervalMs?: number;
+  /** Only deliver events for this player. */
+  player?: string;
+  /** Only deliver events for this day. */
+  dayId?: number;
+  onError?: (error: unknown) => void;
 }
 
-export function isGuessSubmittedEvent(value: unknown): value is DecodedEvent<GuessSubmittedPayload> {
-  if (!isDecodedEvent(value, "guess_submitted") || !isRecord(value.payload)) return false;
-  const payload = value.payload;
-  const result = payload["result"];
-  return (
-    isNonEmptyString(pick(payload, "guessCommitment", "guess_commitment")) &&
-    isRecord(result) &&
-    isUint(pick(result, "attemptNo", "attempt_no")) &&
-    isUint(pick(result, "outcomeCode", "outcome_code")) &&
-    typeof pick(result, "isCorrect", "is_correct") === "boolean"
-  );
-}
+/**
+ * Polls for `session_started` events and invokes `callback` with decoded,
+ * typed events. Returns an `unsubscribe` function that stops polling.
+ */
+export function subscribeSessionStarted(
+  callback: (event: SessionStartedEvent) => void,
+  options: SessionStartedSubscriptionOptions,
+): () => void {
+  const { fetchEvents, intervalMs = 5000, player, dayId, onError } = options;
+  let cursor: string | undefined;
+  let stopped = false;
+  let inFlight = false;
 
-export function isSessionFinalizedEvent(value: unknown): value is DecodedEvent<SessionFinalizedPayload> {
-  return isDecodedEvent(value, "session_finalized") && isNonEmptyString(value.payload);
-}
+  const poll = async () => {
+    if (stopped || inFlight) return;
+    inFlight = true;
+    try {
+      const result = await fetchEvents(cursor);
+      if (stopped) return;
+      cursor = result.cursor ?? cursor;
+      for (const raw of result.events) {
+        const event = decodeSessionStartedEvent(raw);
+        if (!event) continue;
+        if (player !== undefined && event.player !== player) continue;
+        if (dayId !== undefined && event.dayId !== dayId) continue;
+        callback(event);
+      }
+    } catch (error) {
+      onError?.(error);
+    } finally {
+      inFlight = false;
+    }
+  };
 
-export function isStreakUpdatedEvent(value: unknown): value is DecodedEvent<StreakUpdatedPayload> {
-  if (!isDecodedEvent(value, "streak_updated") || !isRecord(value.payload)) return false;
-  const payload = value.payload;
-  return (
-    isUint(payload["current"]) &&
-    isUint(payload["max"]) &&
-    isUint(pick(payload, "lastDayPlayed", "last_day_played"))
-  );
+  void poll();
+  const timer = setInterval(poll, intervalMs);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
 }

@@ -7,7 +7,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { Api, Server, assembleTransaction } from "@stellar/stellar-sdk/rpc";
-import type { SorobanNetworkConfig } from "./network";
+import { withRetry, type RetryOptions, type SorobanNetworkConfig } from "./network";
 
 export async function buildContractTx(params: {
   server: Server;
@@ -33,8 +33,9 @@ export async function buildContractTx(params: {
 export async function simulateAndAssemble(params: {
   server: Server;
   tx: Transaction;
+  retry?: RetryOptions;
 }) {
-  const simulated = await params.server.simulateTransaction(params.tx);
+  const simulated = await withRetry(() => params.server.simulateTransaction(params.tx), params.retry);
   if (Api.isSimulationError(simulated)) {
     throw new Error(`Simulation failed: ${simulated.error}`);
   }
@@ -46,8 +47,9 @@ export async function simulateAndAssemble(params: {
 export async function submitTransaction(params: {
   server: Server;
   tx: Transaction;
+  retry?: RetryOptions;
 }): Promise<Api.SendTransactionResponse> {
-  const sent = await params.server.sendTransaction(params.tx);
+  const sent = await withRetry(() => params.server.sendTransaction(params.tx), params.retry);
 
   if (sent.status === "ERROR") {
     throw new Error(sent.errorResult?.toXDR("base64") || "Transaction submit failed");
