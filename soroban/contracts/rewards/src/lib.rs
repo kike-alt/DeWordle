@@ -77,8 +77,8 @@ pub const DEFAULT_PARTICIPATION_POINTS: u64 = 10;
 /// Names of the public entrypoints; hashed into `get_metadata().abi_hash`.
 /// Update this list (and bump the version) whenever the public ABI changes.
 const METADATA_DEFAULTS: MetadataDefaults = MetadataDefaults {
-    version: 3,
-    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
+    version: 4,
+    abi_descriptor: "accrue\nbalance_of\nclaim\nclaimed_total\nget_emission\nget_metadata\nget_multiplier\nget_player_stats\nget_streak_multiplier\ninit\nrecord_win\nset_emission\nset_rank\nupdate_metadata\nverify_signature\nversion",
     min_sdk_version: "0.1.0",
 };
 
@@ -97,6 +97,16 @@ impl RewardsContract {
         };
         // Whatever the schedule above becomes, the result stays in range.
         raw.clamp(MIN_MULTIPLIER, MAX_MULTIPLIER)
+    }
+
+    pub fn get_streak_multiplier(env: Env, streak_days: u32) -> u32 {
+        if streak_days >= 10 {
+            3
+        } else if streak_days >= 5 {
+            2
+        } else {
+            1
+        }
     }
 
     pub fn verify_signature(env: Env, public_key: soroban_sdk::BytesN<32>, signature: soroban_sdk::BytesN<64>, message: soroban_sdk::Bytes) -> bool {
