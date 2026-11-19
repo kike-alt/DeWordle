@@ -178,6 +178,10 @@ impl AchievementsContract {
         env.storage()
             .persistent()
             .set(&DataKey::UnlockNonce(player.clone(), nonce), &true);
+        let count = Self::get_unlocked_count(env.clone(), player.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::UnlockedCount(player.clone()), &(count + 1));
 
         env.events()
             .publish((Symbol::new(&env, "achievement_unlocked"), player, id), unlock);
@@ -204,6 +208,14 @@ impl AchievementsContract {
 
     pub fn get_unlocked(env: Env, player: Address, id: Symbol) -> Option<AchievementUnlock> {
         env.storage().persistent().get(&DataKey::Unlocked(player, id))
+    }
+
+    /// Number of distinct achievements `player` has unlocked (0 if none).
+    pub fn get_unlocked_count(env: Env, player: Address) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::UnlockedCount(player))
+            .unwrap_or(0)
     }
 
     /// Version, ABI hash and minimum SDK version, for compatibility checks.

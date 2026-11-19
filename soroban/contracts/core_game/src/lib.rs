@@ -160,6 +160,11 @@ impl CoreGameContract {
             panic_with_error!(&env, CoreGameError::InvalidMaxAttempts);
         }
 
+        // A day that is already closed would lock every player out at once.
+        if closes_at <= env.ledger().timestamp() {
+            panic_with_error!(&env, CoreGameError::InvalidClosesAt);
+        }
+
         let config = DayConfig {
             day_id,
             puzzle_commitment,

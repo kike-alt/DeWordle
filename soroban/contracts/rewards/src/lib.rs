@@ -130,6 +130,13 @@ impl RewardsContract {
         env.events().publish((Symbol::new(&env, "emission_set"), day_id), cfg);
     }
 
+    /// Admin-only: caps how much a single `claim` pays out. 0 removes the cap.
+    pub fn set_max_claim_cap(env: Env, cap: u64) {
+        Self::require_admin(&env);
+        env.storage().instance().set(&DataKey::MaxClaimCap, &cap);
+        env.events().publish((Symbol::new(&env, "max_claim_cap_set"),), cap);
+    }
+
     pub fn accrue(env: Env, player: Address, points: u64, nonce: u64, reason: Symbol) {
         Self::require_admin(&env);
         // Zero points would burn gas and emit an empty event for no benefit.
@@ -203,7 +210,7 @@ impl RewardsContract {
 
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(player.clone()), &0u64);
+            .set(&DataKey::Balance(player.clone()), &(full_balance - balance));
 
         let claimed = Self::claimed_total(env.clone(), player.clone());
         let new_claimed = claimed
