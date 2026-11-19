@@ -1,0 +1,54 @@
+name: Repo Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  secret-scan:
+    # #1695: fail if secret or private keys exist anywhere in git history
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan history for private keys and secrets
+        run: |
+          if git log -p --all | grep -E -- '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|S[A-Z0-9]{55}\b' | head -1 | grep -q .; then
+            echo "Possible secret or private key found in git history"; exit 1
+          fi
+
+  license-header:
+    # #1696: new source files must carry a license header
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check added source files
+        run: |
+          missing=0
+          for f in $(git diff --name-only --diff-filter=A origin/${{ github.base_ref || 'main' }}...HEAD | grep -E '\.(ts|tsx|rs)$' || true); do
+            if ! head -5 "$f" | grep -qiE 'license|copyright|SPDX-License-Identifier'; then
+              echo "Missing license header: $f"; missing=1
+            fi
+          done
+          exit $missing
+
+  no-console-log:
+    # #1698: no stray console.log in the production frontend bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build and grep bundle
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          out=$(ls -d dist build .next 2>/dev/null | head -1)
+          if grep -rE 'console\.log\(' "$out" --include='*.js' -l | grep -q .; then
+            echo "console.log found in production bundle:"; grep -rE 'console\.log\(' "$out" --include='*.js' -l; exit 1
+          fi
