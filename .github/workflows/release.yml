@@ -43,7 +43,7 @@ jobs:
           for f in *.wasm; do sha256sum "$f" > "${f}.sha256"; done
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           # Tags like v1.2.0-rc.1 are published as pre-releases.
           prerelease: ${{ contains(github.ref_name, '-') }}
