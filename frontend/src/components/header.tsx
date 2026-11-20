@@ -59,6 +59,7 @@ export default function Header() {
         </div>
 
         <MobileMenu isAuthenticated={isAuthenticated} />
+        <KeyboardShortcutsHelp />
 
         <ul
           role="list"

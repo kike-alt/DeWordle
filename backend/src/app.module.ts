@@ -153,6 +153,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     JobModule,
     AdminModule,
     MatchmakingModule,
+    HealthModule,
   ],
   controllers: [
     AppController,

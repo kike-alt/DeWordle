@@ -8,6 +8,7 @@ import { LeaderboardModule } from '../leaderboard/leaderboard.module';
 import { submitGuessProvider } from './providers/submit-guess';
 import { WordsModule } from '../dewordle/words/words.module';
 import { GuessHistory } from './entities/guess-history.entity';
+import { StaleSessionCleanupService } from './stale-session-cleanup.service';
 
 @Module({
   imports: [
@@ -16,6 +17,10 @@ import { GuessHistory } from './entities/guess-history.entity';
     WordsModule,
   ],
   controllers: [GameSessionsController],
-  providers: [GameSessionsService, submitGuessProvider],
+  providers: [
+    GameSessionsService,
+    StaleSessionCleanupService,
+    submitGuessProvider,
+  ],
 })
 export class GameSessionsModule {}

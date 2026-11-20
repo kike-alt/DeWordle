@@ -78,6 +78,7 @@ export const INDEXER_REDIS_CLIENT = 'INDEXER_REDIS_CLIENT';
     IndexerService,
     ProjectionService,
     CursorService,
+    IndexerWorkerService,
     EventNormalizerService,
     AdminRegistryProcessorService,
     AuditTrailService,
