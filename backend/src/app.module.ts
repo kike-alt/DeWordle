@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import databaseConfig from './config/database.config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -33,7 +33,7 @@ import { DigestModule } from './digest/digest.module';
 import { AdminModule } from './admin/admin.module';
 import { PoolPressureService } from './database/pool-pressure.service';
 import { DatabaseMaintenanceService } from './database/database-maintenance.service';
-import { HealthModule } from './health/health.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 @Module({
   imports: [
@@ -173,4 +173,10 @@ import { HealthModule } from './health/health.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(RequestIdMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+}

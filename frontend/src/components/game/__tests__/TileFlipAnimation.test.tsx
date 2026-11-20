@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import GameTile from "../../GameTile";
 import { AccessibleGameBoard } from "../../AccessibleGameBoard";
 import type { GameCell } from "../../AccessibleGameBoard";
@@ -65,6 +65,49 @@ describe("Tile flip animation (issue-1111)", () => {
       const cells = screen.getAllByRole("gridcell");
       expect(cells[3].className).not.toMatch(/tile-flip/);
       expect(cells[3].style.getPropertyValue("--flip-delay")).toBe("");
+    });
+
+    it("reveals metadata categories only in practice and resets for a new puzzle", () => {
+      const { rerender } = render(
+        <AccessibleGameBoard
+          rows={rows}
+          currentRow={0}
+          maxGuesses={6}
+          guessesUsed={0}
+          practiceMode
+          practicePuzzleId="practice-1"
+          practiceWord="apple"
+          wordMetadata={{ apple: { category: "Nature" } }}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Show Category Hint" }));
+      expect(screen.getByRole("tooltip").textContent).toBe("Nature");
+
+      rerender(
+        <AccessibleGameBoard
+          rows={rows}
+          currentRow={0}
+          maxGuesses={6}
+          guessesUsed={0}
+          practiceMode
+          practicePuzzleId="practice-2"
+          practiceWord="apple"
+          wordMetadata={{ apple: { category: "Nature" } }}
+        />,
+      );
+      expect(screen.queryByRole("tooltip")).toBeNull();
+
+      rerender(
+        <AccessibleGameBoard
+          rows={rows}
+          currentRow={0}
+          maxGuesses={6}
+          guessesUsed={0}
+          practiceWord="apple"
+          wordMetadata={{ apple: { category: "Nature" } }}
+        />,
+      );
+      expect(screen.queryByRole("button", { name: "Show Category Hint" })).toBeNull();
     });
   });
 });

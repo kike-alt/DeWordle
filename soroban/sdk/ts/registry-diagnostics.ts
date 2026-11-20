@@ -53,13 +53,17 @@ export function diagnoseRegistryMismatch(input: {
     };
   }
 
-  if (input.expectedNetwork && input.actualNetwork && !["testnet", "mainnet"].includes(input.actualNetwork)) {
+  if (
+    input.expectedNetwork &&
+    input.actualNetwork &&
+    !["testnet", "futurenet", "mainnet"].includes(input.actualNetwork)
+  ) {
     return {
       cause: "invalid_registry_network",
       expectedNetwork: input.expectedNetwork,
       actualNetwork: input.actualNetwork,
       remediation:
-        "Ensure the registry provider returns a valid testnet or mainnet value before passing it to the SDK.",
+        "Ensure the registry provider returns a valid testnet, futurenet, or mainnet value before passing it to the SDK.",
     };
   }
 

@@ -128,6 +128,7 @@ function build(options: { rpcEvents?: Record<string, unknown>[] } = {}) {
     eventsRepo as unknown as Repository<IngestedEventEntity>,
     projection,
     new AdminRegistryProcessorService(),
+    { emit: jest.fn() } as any,
   );
   const normalizer = new EventNormalizerService();
 

@@ -21,8 +21,9 @@ const env = (over: Record<string, string | undefined> = {}) => ({
 });
 
 describe("NETWORKS", () => {
-  it("defines testnet and mainnet with their passphrases", () => {
+  it("defines testnet, futurenet, and mainnet with their passphrases", () => {
     expect(NETWORKS.testnet.passphrase).toBe("Test SDF Network ; September 2015");
+    expect(NETWORKS.futurenet.passphrase).toBe("Test SDF Future Network ; October 2022");
     expect(NETWORKS.mainnet.passphrase).toBe("Public Global Stellar Network ; September 2015");
   });
 });
@@ -46,6 +47,10 @@ describe("resolveContractId / assertRegistryNetwork", () => {
 describe("loadRegistryFromEnv", () => {
   it("reads the network and all four contract ids", () => {
     expect(loadRegistryFromEnv(env())).toEqual(REGISTRY);
+  });
+
+  it("accepts a futurenet registry", () => {
+    expect(loadRegistryFromEnv(env({ SOROBAN_NETWORK: "futurenet" })).network).toBe("futurenet");
   });
 
   it("rejects an unset or unsupported network", () => {

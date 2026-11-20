@@ -1,4 +1,4 @@
-export type StellarNetwork = "testnet" | "mainnet";
+export type StellarNetwork = "testnet" | "futurenet" | "mainnet";
 
 export interface StellarNetworkConfig {
   network: StellarNetwork;
@@ -14,6 +14,12 @@ export const STELLAR_NETWORKS: Record<StellarNetwork, StellarNetworkConfig> = {
     horizonUrl: "https://horizon-testnet.stellar.org",
     passphrase: "Test SDF Network ; September 2015",
   },
+  futurenet: {
+    network: "futurenet",
+    rpcUrl: "https://rpc-futurenet.stellar.org",
+    horizonUrl: "https://horizon-futurenet.stellar.org",
+    passphrase: "Test SDF Future Network ; October 2022",
+  },
   mainnet: {
     network: "mainnet",
     rpcUrl: "https://mainnet.sorobanrpc.com",
@@ -25,6 +31,7 @@ export const STELLAR_NETWORKS: Record<StellarNetwork, StellarNetworkConfig> = {
 export function getDefaultNetwork(): StellarNetwork {
   const env = process.env.NEXT_PUBLIC_STELLAR_NETWORK;
   if (env === "mainnet") return "mainnet";
+  if (env === "futurenet") return "futurenet";
   return "testnet";
 }
 

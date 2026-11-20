@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   ARIA_LIVE_REGIONS,
   generateGameCellLabel,
@@ -23,6 +23,10 @@ export interface AccessibleGameBoardProps {
   guessesUsed: number;
   isRevealing?: boolean;
   className?: string;
+  practiceMode?: boolean;
+  practicePuzzleId?: string | number;
+  practiceWord?: string;
+  wordMetadata?: Readonly<Record<string, { category?: string | null }>>;
 }
 
 function Cell({
@@ -61,11 +65,23 @@ export function AccessibleGameBoard({
   guessesUsed,
   isRevealing = false,
   className = '',
+  practiceMode = false,
+  practicePuzzleId,
+  practiceWord,
+  wordMetadata,
 }: AccessibleGameBoardProps) {
+  const [isCategoryHintVisible, setIsCategoryHintVisible] = useState(false);
   const summary = useMemo(
     () => generateBoardSummary(currentRow, rows.length, guessesUsed, maxGuesses),
     [currentRow, rows.length, guessesUsed, maxGuesses],
   );
+  const category = practiceWord
+    ? wordMetadata?.[practiceWord.toLowerCase()]?.category?.trim()
+    : undefined;
+
+  useEffect(() => {
+    setIsCategoryHintVisible(false);
+  }, [practicePuzzleId, practiceWord]);
 
   return (
     <div className={className}>
@@ -89,6 +105,32 @@ export function AccessibleGameBoard({
         aria-atomic="true"
         className="sr-only"
       />
+      {practiceMode && (
+        <div className="relative mb-3 flex justify-center">
+          <button
+            type="button"
+            aria-expanded={isCategoryHintVisible}
+            aria-controls="practice-category-hint"
+            onClick={() => setIsCategoryHintVisible((visible) => !visible)}
+            className="rounded-md border border-primary-700/60 px-3 py-2 text-sm text-primary-100 hover:bg-primary-900/40 focus:outline-none focus:ring-2 focus:ring-primary-400"
+          >
+            {isCategoryHintVisible ? 'Hide Category Hint' : 'Show Category Hint'}
+          </button>
+          {isCategoryHintVisible && (
+            <div
+              id="practice-category-hint"
+              role="tooltip"
+              className="absolute bottom-full z-10 mb-2 rounded-md border border-primary-700 bg-primary-950 px-3 py-2 text-sm text-white shadow-lg"
+            >
+              {category ? (
+                <span>{category}</span>
+              ) : (
+                <span>Category hint unavailable</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div role="grid" aria-label="Wordle game board" aria-rowcount={rows.length}>
         {rows.map((row, rowIndex) => (
           <div
