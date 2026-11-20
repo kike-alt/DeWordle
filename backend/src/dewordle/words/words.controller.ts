@@ -31,6 +31,9 @@ import { WordValidationProvider } from './providers/word-validation-provider';
 import { EnrichedWordsProvider } from './providers/enriched-words';
 import { Word } from '../../entities/word.entity';
 import { toWordDto, type WordDto } from '../../common/dto/response-mappers';
+import { SkipThrottle } from '@nestjs/throttler';
+import { OptionalJwtAuthGuard } from '../../auth/guards/optional-jwt-auth.guard';
+import { WordValidationThrottlerGuard } from './word-validation-throttler.guard';
 
 @Controller('words')
 export class WordsController {
@@ -110,6 +113,16 @@ export class WordsController {
     return toWordDto(await this.wordsService.getTodaysWord());
   }
 
+  @Get('archive')
+  @ApiOperation({
+    summary: 'List archived daily puzzles for practice mode',
+    description:
+      'Returns past daily puzzle dates and their words in chronological order.',
+  })
+  async getDailyArchive(@Query('limit') limit = '100') {
+    return this.wordsService.getDailyArchive(Number(limit));
+  }
+
   @Post('daily/trigger')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
@@ -187,6 +200,8 @@ export class WordsController {
   }
 
   @Post('validate')
+  @SkipThrottle()
+  @UseGuards(OptionalJwtAuthGuard, WordValidationThrottlerGuard)
   async validateWord(@Body() { word }: ValidateWordDto) {
     // No validation logic here — service will handle errors
     return await this.wordValidationProvider.validateWord(word);

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
 import { Game } from '../games/entities/game.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,6 +21,23 @@ export class LeaderboardController {
     return this.leaderboardService.getGlobalLeaderboard(
       Number(skip),
       Number(take),
+    );
+  }
+
+  @Get('streaks')
+  async getStreakLeaderboard(
+    @Query('limit') limit = '20',
+    @Query('offset') offset = '0',
+    @Query('period') period = 'all-time',
+  ) {
+    if (period !== 'all-time' && period !== 'monthly') {
+      throw new BadRequestException('period must be all-time or monthly');
+    }
+
+    return this.leaderboardService.getStreakLeaderboard(
+      Number(limit),
+      Number(offset),
+      period,
     );
   }
 

@@ -5,6 +5,7 @@ import { LeaderboardEntry } from './leaderboard-entry.entity';
 import { Repository } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { Game } from '../games/entities/game.entity';
+import { UserGameStats } from '../user-game-stats/entities/user-game-stats.entity';
 
 const mockLeaderboardRepo = () => ({
   findOne: jest.fn(),
@@ -27,6 +28,7 @@ const mockLeaderboardRepo = () => ({
 describe('LeaderboardService', () => {
   let service: LeaderboardService;
   let repo: jest.Mocked<Repository<LeaderboardEntry>>;
+  let statsRepo: { createQueryBuilder: jest.Mock };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -36,10 +38,15 @@ describe('LeaderboardService', () => {
           provide: getRepositoryToken(LeaderboardEntry),
           useFactory: mockLeaderboardRepo,
         },
+        {
+          provide: getRepositoryToken(UserGameStats),
+          useValue: { createQueryBuilder: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get<LeaderboardService>(LeaderboardService);
     repo = module.get(getRepositoryToken(LeaderboardEntry));
+    statsRepo = module.get(getRepositoryToken(UserGameStats));
   });
 
   it('should be defined', () => {
@@ -103,5 +110,43 @@ describe('LeaderboardService', () => {
     ]);
     const result = await service.getGlobalLeaderboard(0, 10);
     expect(result).toEqual([{ userId: 1, totalScore: 100 }]);
+  });
+
+  it('returns ranked streaks in descending order with pagination', async () => {
+    const qb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      offset: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          address: 'GPLAYER',
+          currentStreak: '4',
+          maxStreak: '9',
+        },
+      ]),
+    };
+    statsRepo.createQueryBuilder.mockReturnValue(qb);
+
+    await expect(service.getStreakLeaderboard(10, 20)).resolves.toEqual([
+      {
+        rank: 21,
+        address: 'GPLAYER',
+        currentStreak: 4,
+        maxStreak: 9,
+      },
+    ]);
+    expect(qb.orderBy).toHaveBeenCalledWith(
+      'MAX(stats.longestStreak)',
+      'DESC',
+    );
+    expect(qb.offset).toHaveBeenCalledWith(20);
+    expect(qb.limit).toHaveBeenCalledWith(10);
   });
 });

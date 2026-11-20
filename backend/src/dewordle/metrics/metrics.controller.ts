@@ -1,10 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import * as client from 'prom-client';
+import { MetricsService } from './metrics.service';
 
 @ApiTags('Metrics')
 @Controller('metrics')
 export class MetricsController {
+  constructor(private readonly metricsService: MetricsService) {}
+
   @Get()
   @ApiOperation({
     summary: 'Get application metrics',
@@ -29,6 +31,6 @@ export class MetricsController {
     description: 'Failed to fetch metrics',
   })
   async getMetrics(): Promise<string> {
-    return client.register.metrics();
+    return this.metricsService.getMetrics();
   }
 }

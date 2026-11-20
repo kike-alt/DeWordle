@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -8,13 +9,15 @@ import { type Repository } from 'typeorm';
 import { LeaderboardEntry } from './leaderboard-entry.entity';
 import { type User } from '../auth/entities/user.entity';
 import { type Game } from '../games/entities/game.entity';
+import { UserGameStats } from '../user-game-stats/entities/user-game-stats.entity';
 
 @Injectable()
 export class LeaderboardService {
-  // Logger removed for production cleanliness
   constructor(
     @InjectRepository(LeaderboardEntry)
-    private leaderboardRepository: Repository<LeaderboardEntry>,
+    private readonly leaderboardRepository: Repository<LeaderboardEntry>,
+    @InjectRepository(UserGameStats)
+    private readonly userGameStatsRepository: Repository<UserGameStats>,
   ) {}
 
   async upsertEntry(user: User, game: Game, score: number, win: boolean) {
@@ -81,6 +84,60 @@ export class LeaderboardService {
       throw new InternalServerErrorException(
         'Could not fetch global leaderboard',
       );
+    }
+
+    async getStreakLeaderboard(
+      limit = 20,
+      offset = 0,
+      period: 'all-time' | 'monthly' = 'all-time',
+    ) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+        throw new BadRequestException('limit must be an integer between 1 and 100');
+      }
+      if (!Number.isInteger(offset) || offset < 0) {
+        throw new BadRequestException('offset must be a non-negative integer');
+      }
+
+      const query = this.userGameStatsRepository
+        .createQueryBuilder('stats')
+        .innerJoin('stats.user', 'user')
+        .select('user.walletAddress', 'address')
+        .addSelect('MAX(stats.currentStreak)', 'currentStreak')
+        .addSelect('MAX(stats.longestStreak)', 'maxStreak')
+        .where('user.walletAddress IS NOT NULL')
+        .groupBy('user.id')
+        .addGroupBy('user.walletAddress');
+
+      if (period === 'monthly') {
+        const now = new Date();
+        const monthStart = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+        )
+          .toISOString()
+          .slice(0, 10);
+        query.andWhere('stats.lastPlayedDate >= :monthStart', { monthStart });
+      } else if (period !== 'all-time') {
+        throw new BadRequestException('period must be all-time or monthly');
+      }
+
+      const rows = await query
+        .orderBy('MAX(stats.longestStreak)', 'DESC')
+        .addOrderBy('MAX(stats.currentStreak)', 'DESC')
+        .addOrderBy('user.id', 'ASC')
+        .offset(offset)
+        .limit(limit)
+        .getRawMany<{
+          address: string;
+          currentStreak: number | string;
+          maxStreak: number | string;
+        }>();
+
+      return rows.map((row, index) => ({
+        rank: offset + index + 1,
+        address: row.address,
+        currentStreak: Number(row.currentStreak),
+        maxStreak: Number(row.maxStreak),
+      }));
     }
   }
 }

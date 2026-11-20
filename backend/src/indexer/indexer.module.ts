@@ -38,6 +38,7 @@ export const INDEXER_REDIS_CLIENT = 'INDEXER_REDIS_CLIENT';
       RegistrySnapshotEntity,
       AuditTrailEntity,
     ]),
+    MetricsModule,
   ],
   controllers: [IndexerController, RewardSummaryController, AuditController],
   providers: [

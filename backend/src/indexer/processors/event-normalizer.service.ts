@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { IngestedEventDto } from '../dto/ingested-event.dto';
+import { MetricsService } from '../../dewordle/metrics/metrics.service';
 
 interface RawSorobanEvent {
   contractId?: string;
@@ -29,7 +30,14 @@ export const DEFAULT_MAX_PAYLOAD_BYTES = 8_192;
 export class EventNormalizerService {
   private readonly maxPayloadBytes: number;
 
-  constructor() {
+  constructor(
+    @Optional()
+    @Inject(MetricsService)
+    private readonly metricsService?: Pick<
+      MetricsService,
+      'recordEventNormalizationFailure'
+    >,
+  ) {
     const env = process.env.INDEXER_MAX_PAYLOAD_BYTES;
     this.maxPayloadBytes = env ? parseInt(env, 10) : DEFAULT_MAX_PAYLOAD_BYTES;
   }
@@ -53,13 +61,38 @@ export class EventNormalizerService {
   }
 
   isValid(event: IngestedEventDto): boolean {
-    if (!event.contractId || !event.topic || !event.txHash) return false;
-    if (!Number.isInteger(event.ledger) || event.ledger <= 0) return false;
-    if (!Number.isInteger(event.eventIndex) || event.eventIndex < 0)
+    let errorReason: 'schema_validation' | 'missing_topic' | undefined;
+    if (!event.topic) {
+      errorReason = 'missing_topic';
+    } else if (
+      !event.contractId ||
+      !event.txHash ||
+      !Number.isInteger(event.ledger) ||
+      event.ledger <= 0 ||
+      !Number.isInteger(event.eventIndex) ||
+      event.eventIndex < 0 ||
+      !ALLOWED_TOPICS.has(event.topic) ||
+      this.payloadBytes(event.payload) > this.maxPayloadBytes
+    ) {
+      errorReason = 'schema_validation';
+    }
+
+    if (errorReason) {
+      this.recordFailure(event.topic || 'unknown', errorReason);
       return false;
-    if (!ALLOWED_TOPICS.has(event.topic)) return false;
-    if (this.payloadBytes(event.payload) > this.maxPayloadBytes) return false;
+    }
+
     return true;
+  }
+
+  recordFailure(
+    eventType: string,
+    errorReason: 'schema_validation' | 'missing_topic',
+  ): void {
+    this.metricsService?.recordEventNormalizationFailure(
+      eventType,
+      errorReason,
+    );
   }
 
   private payloadBytes(payload: Record<string, unknown>): number {

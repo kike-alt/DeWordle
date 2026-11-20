@@ -3,6 +3,7 @@ import {
   ALLOWED_TOPICS,
   DEFAULT_MAX_PAYLOAD_BYTES,
 } from './event-normalizer.service';
+import type { MetricsService } from '../../dewordle/metrics/metrics.service';
 
 describe('EventNormalizerService', () => {
   const service = new EventNormalizerService();
@@ -30,6 +31,41 @@ describe('EventNormalizerService', () => {
           txHash: 'h1',
           ledger: 1,
           eventIndex: 0,
+        });
+
+        it('records missing-topic and schema-validation failures', () => {
+          const metrics = {
+            recordEventNormalizationFailure: jest.fn(),
+          } satisfies Pick<MetricsService, 'recordEventNormalizationFailure'>;
+          const measured = new EventNormalizerService(metrics);
+
+          const missingTopic = measured.normalize('testnet', {
+            contractId: 'C1',
+            topic: '',
+            txHash: 'h1',
+            ledger: 1,
+            eventIndex: 0,
+          });
+          const unknownTopic = measured.normalize('testnet', {
+            contractId: 'C1',
+            topic: 'unknown_event',
+            txHash: 'h1',
+            ledger: 1,
+            eventIndex: 0,
+          });
+
+          expect(measured.isValid(missingTopic)).toBe(false);
+          expect(measured.isValid(unknownTopic)).toBe(false);
+          expect(metrics.recordEventNormalizationFailure).toHaveBeenNthCalledWith(
+            1,
+            'unknown',
+            'missing_topic',
+          );
+          expect(metrics.recordEventNormalizationFailure).toHaveBeenNthCalledWith(
+            2,
+            'unknown_event',
+            'schema_validation',
+          );
         });
         expect(service.isValid(event)).toBe(true);
       }

@@ -14,6 +14,7 @@ export class MetricsService {
   readonly httpRequestCounter: Counter;
   readonly errorRateCounter: Counter;
   readonly dbQueryDuration: Histogram;
+  readonly eventNormalizationFailures: Counter;
 
   constructor() {
     this.registry = new Registry();
@@ -47,6 +48,23 @@ export class MetricsService {
       labelNames: ['operation', 'table'],
       buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
       registers: [this.registry],
+    });
+
+    this.eventNormalizationFailures = new Counter({
+      name: 'dewordle_event_normalization_failures_total',
+      help: 'Total number of malformed Soroban events rejected during normalization',
+      labelNames: ['event_type', 'error_reason'],
+      registers: [this.registry],
+    });
+  }
+
+  recordEventNormalizationFailure(
+    eventType: string,
+    errorReason: 'schema_validation' | 'missing_topic',
+  ): void {
+    this.eventNormalizationFailures.inc({
+      event_type: eventType,
+      error_reason: errorReason,
     });
   }
 
