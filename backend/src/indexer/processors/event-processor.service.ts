@@ -7,6 +7,8 @@ import { ProjectionService } from '../projections/projection.service';
 import { AdminRegistryProcessorService } from './admin-registry-processor.service';
 import { IndexerLogContext } from '../indexer.service';
 import { computeAuditEventHash } from '../audit/event-hash';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DAY_PUBLISHED_EVENT, DayPublishedEvent } from '../day-published.event';
 
 @Injectable()
 export class EventProcessorService {
@@ -18,6 +20,7 @@ export class EventProcessorService {
     private readonly eventsRepo: Repository<IngestedEventEntity>,
     private readonly projectionService: ProjectionService,
     private readonly adminRegistryProcessor: AdminRegistryProcessorService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async process(
@@ -57,6 +60,35 @@ export class EventProcessorService {
     await this.eventsRepo.save(this.eventsRepo.create({ ...event, auditHash }));
     await this.projectionService.apply(event, context);
     this.adminRegistryProcessor.process(event, context);
+    if (event.topic === 'day_published') {
+      const dayId = event.payload.dayId;
+      const commitmentHash =
+        event.payload.commitmentHash ?? event.payload.commitment;
+      const maxAttempts = Number(event.payload.maxAttempts);
+      if (
+        (typeof dayId === 'string' || typeof dayId === 'number') &&
+        typeof commitmentHash === 'string' &&
+        commitmentHash.length > 0 &&
+        Number.isInteger(maxAttempts) &&
+        maxAttempts > 0
+      ) {
+        this.eventEmitter.emit(
+          DAY_PUBLISHED_EVENT,
+          new DayPublishedEvent(
+            dayId,
+            event.observedAt?.toISOString() ?? new Date().toISOString(),
+            commitmentHash,
+            maxAttempts,
+          ),
+        );
+      } else {
+        this.logger.warn({
+          msg: 'indexer.day_published.webhook_skipped',
+          txHash: event.txHash,
+          reason: 'invalid_day_published_payload',
+        });
+      }
+    }
     return true;
   }
 

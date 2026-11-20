@@ -73,6 +73,7 @@ export class WordDto {
   partOfSpeech: string | null;
   phonetics: string | null;
   difficulty: string;
+  category: string | null;
 }
 
 export class TestEntityDto {
@@ -151,6 +152,8 @@ export const toWordDto = (w: Word): WordDto => ({
   partOfSpeech: orNull(w.partOfSpeech),
   phonetics: orNull(w.phonetics),
   difficulty: w.difficulty,
+  category:
+    typeof w.metadata?.category === 'string' ? w.metadata.category : null,
 });
 
 export const toTestEntityDto = (t: TestEntity): TestEntityDto => ({

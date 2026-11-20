@@ -21,6 +21,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { PlayerProfileCard } from './PlayerProfileCard';
 import { StreakBadge } from './StreakBadge';
 import { useWalletContext } from '@/providers/stellar-wallet-provider';
+import { ActiveNetworkBadge } from './ActiveNetworkBadge';
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -97,6 +98,9 @@ export default function Header() {
             </PopoverContent>
           </Popover>
         )}
+        <div className="hidden md:flex">
+          <ActiveNetworkBadge />
+        </div>
         {isAuthenticated && (
           <div className="hidden md:flex gap-4 items-center">
             <HeaderSyncStatus enabled={isAuthenticated} />
