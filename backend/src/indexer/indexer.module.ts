@@ -25,7 +25,7 @@ import {
   EventDedupService,
   RedisEventDedupCache,
 } from './dedup/event-dedup.service';
-import { MetricsModule } from '../dewordle/metrics/metrics.module';
+import { DayPublishedWebhookService } from './day-published-webhook.service';
 
 export const INDEXER_REDIS_CLIENT = 'INDEXER_REDIS_CLIENT';
 
@@ -72,6 +72,7 @@ export const INDEXER_REDIS_CLIENT = 'INDEXER_REDIS_CLIENT';
       inject: [INDEXER_REDIS_CLIENT],
     },
     EventDedupService,
+    DayPublishedWebhookService,
   ],
   exports: [
     IndexerService,

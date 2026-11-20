@@ -78,7 +78,7 @@ describe('response mappers (#1536)', () => {
     });
   });
 
-  it('word DTO hides moderation and enrichment internals', () => {
+  it('word DTO exposes only public category metadata, not enrichment internals', () => {
     const dto = toWordDto({
       id: 'w1',
       word: 'crane',
@@ -86,7 +86,7 @@ describe('response mappers (#1536)', () => {
       status: 'approved',
       qualityScore: 0.9,
       sources: ['x'],
-      metadata: { raw: 1 },
+      metadata: { raw: 1, category: 'Nature' },
       isEnriched: true,
       isDaily: true,
       definition: 'a bird',
@@ -99,7 +99,9 @@ describe('response mappers (#1536)', () => {
       partOfSpeech: null,
       phonetics: null,
       difficulty: 'EASY',
+      category: 'Nature',
     });
+    expect(toWordDto({ word: 'other', metadata: { category: { value: 'bad' } } } as any).category).toBeNull();
   });
 
   it('auth session DTO keeps device info but not the owning user', () => {
